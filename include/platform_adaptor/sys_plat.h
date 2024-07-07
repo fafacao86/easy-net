@@ -68,8 +68,8 @@ typedef sem_t * sys_sem_t;            // 信号量
 // pcap引用了winsock.h，下面用了windows，有些宏重复了
 // 加上下面的宏可避免编译出错
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <pcap.h>
+#include <Windows.h>
+#include "lib/npcap/Include/pcap.h"
 #include <stdio.h>
 #include <string.h>
 
