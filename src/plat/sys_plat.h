@@ -1,14 +1,4 @@
-﻿/**
- * @file sys_plat.h
- * @author lishutong (527676163@qq.com)
- * @brief 不同操作系统平台的接口
- * @version 0.110
- * @date 2022-12-19
- *
- * @copyright Copyright (c) 2022
- *
- */
-#ifndef SYS_PLAT_H
+﻿#ifndef SYS_PLAT_H
 #define SYS_PLAT_H
 
 #include <stdio.h>
