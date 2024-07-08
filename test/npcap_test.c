@@ -1,6 +1,7 @@
 ﻿#include <string.h>
 #include "include/platform_adaptor/netif_pcap.h"
 #include "include/platform_adaptor/sys_plat.h"
+#include "net_errors.h"
 
 static sys_sem_t sem;
 static sys_mutex_t mutex;
