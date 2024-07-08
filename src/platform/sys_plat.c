@@ -1,4 +1,4 @@
-﻿#include "include/platform_adaptor/sys_plat.h"
+﻿#include "include/platform/sys_plat.h"
 
 #if defined(SYS_PLAT_X86OS)
 #include "dev/time.h"
