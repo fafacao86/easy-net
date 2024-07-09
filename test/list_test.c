@@ -23,7 +23,6 @@ void test_list (void) {
         tnode_t * tnode = list_entry(p, tnode_t, node);
         plat_printf("id:%d\n", tnode->id);
     }
-
     plat_printf("remove first\n");
     for (int i = 0; i < NODE_CNT; i++) {
         p = list_remove_first(&list);
@@ -38,18 +37,15 @@ void test_list (void) {
         tnode_t * tnode = list_entry(p, tnode_t, node);
         plat_printf("id:%d\n", tnode->id);
     }
-
     plat_printf("remove last\n");
     for (int i = 0; i < NODE_CNT; i++) {
         p = list_remove_last(&list);
         plat_printf("id:%d\n", list_entry(p, tnode_t, node)->id);
     }
-
     plat_printf("insert after\n");
     for (int i = 0; i < NODE_CNT; i++) {
         list_insert_after(&list, list_get_first_node(&list), &node[i].node);
     }
-
     list_for_each(p, &list) {
         tnode_t * tnode = list_entry(p, tnode_t, node);
         plat_printf("id:%d\n", tnode->id);

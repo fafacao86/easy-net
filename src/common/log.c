@@ -20,9 +20,7 @@ void print_log(int cur_level, int required_level, const char* file, const char* 
             end--;
         }
         end++;
-
         plat_printf("%s(%s-%s-%d): ", title[required_level], end, func, line);
-
         char str_buf[256];
         va_list args;
 
