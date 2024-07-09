@@ -18,8 +18,12 @@ typedef struct mem_t{
 }memory_pool_t;
 
 net_err_t memory_pool_init (memory_pool_t* mem_pool, void * mem, int blk_size, int cnt, locker_type_t share_type);
+
 void * memory_pool_alloc(memory_pool_t * mem_pool, int ms);
+
 int memory_pool_free_cnt(memory_pool_t* list);
+
 void memory_pool_free(memory_pool_t * mem_pool, void * block);
+
 void memory_pool_destroy(memory_pool_t* mem_pool);
 #endif //EASY_NET_MEMORY_POOL_H
