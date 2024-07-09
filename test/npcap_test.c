@@ -15,5 +15,6 @@ int main (void) {
 //    init_network_device();
 //    start_easy_net();
     //test_logging();
-    test_list();
+    //test_list();
+    test_memory_pool();
 }
