@@ -1,7 +1,6 @@
 #ifndef EASY_NET_LIST_H
 #define EASY_NET_LIST_H
 /**
- * This doubly linked list implementation is inspired by the implementation of Linux kernel.
  * https://kernelnewbies.org/FAQ/LinkedLists
  * */
 

@@ -81,7 +81,7 @@ net_err_t exmsg_netif_in(void) {
 
     net_err_t err = fixed_queue_send(&msg_queue, msg, -1);
     if (err < 0) {
-        log_warning(LOG_HANDLER, "fixq full");
+        log_warning(LOG_HANDLER, "fixed queue full");
         memory_pool_free(&msg_mem_pool, msg);
         return err;
     }
