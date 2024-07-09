@@ -67,3 +67,23 @@ net_err_t start_msg_handler (void) {
     }
     return NET_OK;
 }
+
+
+net_err_t exmsg_netif_in(void) {
+    exmsg_t* msg = memory_pool_alloc(&msg_mem_pool, -1);
+    if (!msg) {
+        log_warning(LOG_HANDLER, "no free block");
+        return NET_ERR_MEM;
+    }
+
+    static int id = 0;
+    msg->type = id++;
+
+    net_err_t err = fixed_queue_send(&msg_queue, msg, -1);
+    if (err < 0) {
+        log_warning(LOG_HANDLER, "fixq full");
+        memory_pool_free(&msg_mem_pool, msg);
+        return err;
+    }
+    return NET_OK;
+}

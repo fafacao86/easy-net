@@ -3,6 +3,7 @@
 /**
  * testcases for logging
  * */
+#include "stack.h"
 #include "log.h"
 void test_logging();
 
@@ -11,4 +12,7 @@ void test_list();
 
 #include "memory_pool.h"
 void test_memory_pool();
+
+#include "msg_handler.h"
+void test_msg_handler();
 #endif

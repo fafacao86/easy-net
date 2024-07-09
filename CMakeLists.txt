@@ -21,7 +21,8 @@ file(GLOB_RECURSE SOURCE_LIST "src/*.c" "src/*.h" "test/*.c" "test/*.h" "include
 add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         test/memory_pool_test.c
         include/common/fixed_queue.h
-        src/common/fixed_queue.c)
+        src/common/fixed_queue.c
+        "test/handler _test.c")
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
