@@ -8,4 +8,7 @@ void test_logging();
 
 #include "list.h"
 void test_list();
+
+#include "memory_pool.h"
+void test_memory_pool();
 #endif

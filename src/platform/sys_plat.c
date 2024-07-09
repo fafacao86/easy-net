@@ -19,11 +19,11 @@ typedef struct _net_task_t {
 }net_task_t;
 
 static net_task_t task_tbl[NET_TASK_NR];
-static mblock_t task_mblock;
+static memory_pool_t task_mblock;
 static sem_t sem_tbl[NET_SEM_NR];
-static mblock_t sem_mblock;
+static memory_pool_t sem_mblock;
 static mutex_t mutex_tbl[NET_MUTEX_NR];
-static mblock_t mutex_mblock;
+static memory_pool_t mutex_mblock;
 
 void sys_time_curr (net_time_t * time) {
     *time = sys_get_ticks();
@@ -120,9 +120,9 @@ void sys_sleep(int ms) {
 }
 
 void sys_plat_init(void) {
-    mblock_init(&task_mblock, task_tbl, sizeof(net_task_t), NET_TASK_NR, NLOCKER_NONE);
-    mblock_init(&sem_mblock, sem_tbl, sizeof(sem_t), NET_SEM_NR, NLOCKER_NONE);
-    mblock_init(&mutex_mblock, mutex_tbl, sizeof(mutex_t), NET_MUTEX_NR, NLOCKER_NONE);
+    mblock_init(&task_mblock, task_tbl, sizeof(net_task_t), NET_TASK_NR, LOCKER_NONE);
+    mblock_init(&sem_mblock, sem_tbl, sizeof(sem_t), NET_SEM_NR, LOCKER_NONE);
+    mblock_init(&mutex_mblock, mutex_tbl, sizeof(mutex_t), NET_MUTEX_NR, LOCKER_NONE);
 }
 	
  // windows

@@ -1,6 +1,11 @@
 #ifndef EASY_NET_LIST_H
 #define EASY_NET_LIST_H
 /**
+ * This doubly linked list implementation is inspired by the implementation of Linux kernel.
+ * https://kernelnewbies.org/FAQ/LinkedLists
+ * */
+
+/**
  * Node of the doubly linked list.
  */
 typedef struct list_node_t {
@@ -21,9 +26,9 @@ void list_node_set_next(list_node_t* pre, list_node_t* next);
  * Doubly linked list.
  */
 typedef struct list_t {
-    list_node_t * first;            // 头结点
-    list_node_t * last;             // 尾结点
-    int count;                      // 结点数量
+    list_node_t * first;
+    list_node_t * last;
+    int count;
 }list_t;
 
 void init_list(list_t *list);

@@ -16,7 +16,4 @@ int main (void) {
 //    start_easy_net();
     //test_logging();
     test_list();
-    while (1) {
-        sys_sleep(10);
-    }
 }
