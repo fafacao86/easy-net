@@ -3,7 +3,7 @@
 
 typedef enum _net_err_t {
     NET_OK = 0,    // No error
-    NET_ERR_SYS,   // System error
+    NET_ERR_SYS = -1,   // System error
 }net_err_t;
 
 #endif
