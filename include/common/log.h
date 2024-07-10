@@ -28,4 +28,8 @@ void print_log(int cur_level, int required_level, const char* file, const char* 
         while(1);   \
     }   \
 }
+
+
+#define LOG_DISP_ENABLED(module)  (module >= DBG_LEVEL_INFO)
+
 #endif //EASY_NET_LOG_H

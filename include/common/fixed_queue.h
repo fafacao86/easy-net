@@ -4,9 +4,7 @@
 #include "locker.h"
 #include "net_plat.h"
 
-/**
- * 固定长度的消息队列
- */
+
 typedef struct fixq_t{
     int size;
     void** buffer;

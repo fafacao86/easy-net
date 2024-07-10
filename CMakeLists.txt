@@ -24,7 +24,8 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         src/common/fixed_queue.c
         "test/handler _test.c"
         src/common/packet_buffer.c
-        include/common/packet_buffer.h)
+        include/common/packet_buffer.h
+        test/packet_test.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

@@ -11,11 +11,12 @@ net_err_t init_network_device(void) {
 
 
 int main (void) {
-    init_stack();
+    //init_stack();
 //    init_network_device();
-    start_easy_net();
+    //start_easy_net();
     //test_logging();
     //test_list();
     //test_memory_pool();
-    test_msg_handler();
+    //test_msg_handler();
+    test_packet_buffer();
 }

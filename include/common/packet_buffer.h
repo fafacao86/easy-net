@@ -60,7 +60,9 @@ static inline uint8_t * packet_data (packet_t * packet) {
     return first ? first->data : (uint8_t *)0;
 }
 
-
+void packet_buffer_mem_stat(void);
+net_err_t packet_buffer_init(void);
+packet_t * packet_alloc(int size);
 
 
 #endif //EASY_NET_PACKET_BUFFER_H
