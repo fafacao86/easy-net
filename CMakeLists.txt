@@ -22,7 +22,9 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         test/memory_pool_test.c
         include/common/fixed_queue.h
         src/common/fixed_queue.c
-        "test/handler _test.c")
+        "test/handler _test.c"
+        src/common/packet_buffer.c
+        include/common/packet_buffer.h)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

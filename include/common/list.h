@@ -32,6 +32,10 @@ typedef struct list_t {
 
 void init_list(list_t *list);
 
+list_node_t * list_first(list_t *list);
+
+list_node_t * list_last(list_t *list);
+
 void list_insert_first(list_t *list, list_node_t *node);
 
 list_node_t* list_remove(list_t *list, list_node_t *node);
@@ -40,7 +44,7 @@ void list_insert_last(list_t *list, list_node_t *node);
 
 void list_insert_after(list_t* list, list_node_t* pre, list_node_t* node);
 
-int is_list_empty(list_t *list);
+int list_is_empty(list_t *list);
 
 int list_count(list_t *list);
 

@@ -1,6 +1,6 @@
 #include "list.h"
 
-int is_list_empty(list_t *list) {
+int list_is_empty(list_t *list) {
     return list->count == 0;
 }
 
@@ -37,11 +37,19 @@ void init_list(list_t *list) {
     list->count = 0;
 }
 
+list_node_t * list_first(list_t *list){
+    return list->first;
+}
+
+list_node_t * list_last(list_t *list){
+    return list->last;
+}
+
 void list_insert_first(list_t *list, list_node_t *node) {
     node->next = list->first;
     node->pre = (list_node_t *)0;
 
-    if (is_list_empty(list)) {
+    if (list_is_empty(list)) {
         list->last = list->first = node;
     } else {
         list->first->pre = node;
@@ -75,7 +83,7 @@ list_node_t * list_remove(list_t *list, list_node_t *node) {
 void list_insert_last(list_t *list, list_node_t *node) {
     node->pre = list->last;
     node->next = (list_node_t*)0;
-    if (is_list_empty(list)) {
+    if (list_is_empty(list)) {
         list->first = list->last = node;
     } else {
         list->last->next = node;
@@ -85,7 +93,7 @@ void list_insert_last(list_t *list, list_node_t *node) {
 }
 
 void list_insert_after(list_t* list, list_node_t* pre, list_node_t* node) {
-    if (is_list_empty(list)) {
+    if (list_is_empty(list)) {
         list_insert_first(list, node);
         return;
     }
