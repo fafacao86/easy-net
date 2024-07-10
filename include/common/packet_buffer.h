@@ -6,6 +6,9 @@
 #include "easy_net_config.h"
 #include "net_errors.h"
 
+#define CONTINUOUS 1
+#define NON_CONTINUOUS 0
+
 /**
  * Page of a packet
  * Each page has a fixed size payload buffer,
@@ -63,6 +66,7 @@ static inline uint8_t * packet_data (packet_t * packet) {
 void packet_buffer_mem_stat(void);
 net_err_t packet_buffer_init(void);
 packet_t * packet_alloc(int size);
+net_err_t packet_add_header(packet_t * packet, int size, int cont);
 
 
 #endif //EASY_NET_PACKET_BUFFER_H

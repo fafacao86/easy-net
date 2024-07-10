@@ -7,6 +7,7 @@ typedef enum _net_err_t {
     NET_ERR_FULL = -2,  // Queue is full
     NET_ERR_TIMEOUT = -3, // Timeout
     NET_ERR_MEM = -4,    // Memory allocation error
+    NET_ERR_SIZE = -5,    // Packet size error
 }net_err_t;
 
 #endif

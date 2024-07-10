@@ -11,4 +11,7 @@ void test_packet_buffer(){
     }
     packet_t* pkt = packet_alloc(64);
     packet_buffer_mem_stat();
+    packet_add_header(pkt, 10, 1);
+    packet_add_header(pkt, 20, 1);
+    packet_buffer_mem_stat();
 }

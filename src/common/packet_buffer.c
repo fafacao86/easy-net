@@ -219,3 +219,53 @@ packet_t * packet_alloc(int size){
     return pkt;
 }
 
+/**
+ * Add header to the packet
+ * If cont is 1, then the header will be guaranteed not to be split into multiple pages.
+ * If cont is 0, then the header may be split into multiple pages.
+ * */
+net_err_t packet_add_header(packet_t * packet, int size, int cont){
+    page_t * page = packet_first_page(packet);
+
+    // if the first page has enough space, just add the header
+    int resv_size = (int)(page->data - page->payload);
+    if (size <= resv_size) {
+        page->size += size;
+        page->data -= size;
+        packet->total_size += size;
+
+        display_check_buf(packet);
+        return NET_OK;
+    }
+
+    if (cont) {
+        // if cont is 1, allocate a new page for the header
+        if (size > PACKET_PAGE_SIZE) {
+            log_error(LOG_PACKET_BUFFER,"is_contious && size too big %d > %d", size, PACKET_PAGE_SIZE);
+            return NET_ERR_SIZE;
+        }
+
+        page = page_alloc_list(size, 1);
+        if (!page) {
+            log_error(LOG_PACKET_BUFFER,"no buffer for alloc(size:%d)", size);
+            return NET_ERR_MEM;
+        }
+    } else {
+        // if cont is 0, utilize the remaining space in the first page
+        page->data = page->payload;
+        page->size += resv_size;
+        packet->total_size += resv_size;
+        size -= resv_size;
+
+        // then allocate a new page for the rest of the header
+        page = page_alloc_list(size, 1);
+        if (!page) {
+            log_error(LOG_PACKET_BUFFER,"no buffer for alloc(size:%d)", size);
+            return NET_ERR_MEM;
+        }
+    }
+
+    packet_insert_page_list(packet, page, 0);
+    display_check_buf(packet);
+    return NET_OK;
+}
