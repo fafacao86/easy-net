@@ -2,6 +2,7 @@
 #define EASY_NET_MSG_HANDLER_H
 
 #include "list.h"
+#include "netif.h"
 
 typedef struct exmsg_t {
     // 消息类型
@@ -15,5 +16,5 @@ typedef struct exmsg_t {
 
 net_err_t init_msg_handler (void);
 net_err_t start_msg_handler (void);
-net_err_t exmsg_netif_in(void);
+net_err_t exmsg_netif_in(netif_t* netif);
 #endif

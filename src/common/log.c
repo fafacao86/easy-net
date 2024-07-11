@@ -31,3 +31,23 @@ void print_log(int cur_level, int required_level, const char* file, const char* 
     }
 }
 
+void dump_mac(const char * msg, const uint8_t * mac) {
+    if (msg) {
+        plat_printf("%s", msg);
+    }
+
+    plat_printf("%02x-%02x-%02x-%02x-%02x-%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+}
+
+void dump_ip_buf(const char* msg, const uint8_t* ip) {
+    if (msg) {
+        plat_printf("%s", msg);
+    }
+
+    if (ip) {
+        plat_printf("%d.%d.%d.%d\n", ip[0], ip[1], ip[2], ip[3]);
+    } else {
+        plat_printf("0.0.0.0\n");
+    }
+}
+

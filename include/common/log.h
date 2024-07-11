@@ -1,6 +1,8 @@
 #ifndef EASY_NET_LOG_H
 #define EASY_NET_LOG_H
 
+#include <stdint.h>
+
 #define FONT_COLOR_WHITE     "\033[0m"       // white
 #define FONT_COLOR_RED       "\033[31m"      // red
 #define FONT_COLOR_YELLOW    "\033[33m"      // yellow
@@ -31,5 +33,7 @@ void print_log(int cur_level, int required_level, const char* file, const char* 
 
 
 #define LOG_DISP_ENABLED(module)  (module >= DBG_LEVEL_INFO)
+void dump_mac(const char * msg, const uint8_t * mac);
+void dump_ip_buf(const char* msg, const uint8_t* ip);
 
 #endif //EASY_NET_LOG_H

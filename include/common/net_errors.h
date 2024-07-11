@@ -9,6 +9,8 @@ typedef enum _net_err_t {
     NET_ERR_MEM = -4,    // Memory allocation error
     NET_ERR_SIZE = -5,    // Packet size error
     NET_ERR_PARAM = -6,  // Invalid parameter
+    NET_ERR_STATE = -7,  // Invalid state
+    NET_ERR_NONE = -8,   // No resource
 }net_err_t;
 
 #endif

@@ -14,6 +14,7 @@
 #include "easy_net_config.h"
 #include "memory_pool.h"
 #include "log.h"
+#include "netif.h"
 
 static void * msg_tbl[HANDLER_BUFFER_SIZE];  // For the message queue
 static fixed_queue_t msg_queue;            // message queue
@@ -52,7 +53,6 @@ static void work_thread (void * arg) {
         exmsg_t* msg = (exmsg_t*)fixed_queue_recv(&msg_queue, 0);
 
         log_info(LOG_HANDLER ,"received a msg(%p): %d\n", msg, msg->type);
-
         memory_pool_free(&msg_mem_pool, msg);
     }
 }
@@ -69,14 +69,14 @@ net_err_t start_msg_handler (void) {
 }
 
 
-net_err_t exmsg_netif_in(void) {
+net_err_t exmsg_netif_in(netif_t* netif) {
     exmsg_t* msg = memory_pool_alloc(&msg_mem_pool, -1);
     if (!msg) {
         log_warning(LOG_HANDLER, "no free block");
         return NET_ERR_MEM;
     }
 
-    static int id = 0;
+    static int id = 100;
     msg->type = id++;
 
     net_err_t err = fixed_queue_send(&msg_queue, msg, -1);
