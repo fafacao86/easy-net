@@ -44,6 +44,21 @@ net_err_t init_msg_handler (void) {
     return NET_OK;
 }
 
+static net_err_t do_netif_in(exmsg_t* msg) {
+    netif_t* netif = msg->netif.netif;
+
+    packet_t* packet;
+    while ((packet = netif_get_in(netif, -1))) {
+        log_info(LOG_HANDLER, "recv a packet");
+
+        // todo: process the packet here
+        packet_free(packet);
+    }
+
+    return NET_OK;
+}
+
+
 /**
  * Body of the message handler thread
  */
@@ -51,11 +66,21 @@ static void work_thread (void * arg) {
     log_info(LOG_HANDLER, "handler thread is running....\n");
     while (1) {
         exmsg_t* msg = (exmsg_t*)fixed_queue_recv(&msg_queue, 0);
+        if (msg == (exmsg_t*)0) {
+            continue;
+        }
 
-        log_info(LOG_HANDLER ,"received a msg(%p): %d\n", msg, msg->type);
+        log_info(LOG_HANDLER, "recieve a msg(%p): %d", msg, msg->type);
+        switch (msg->type) {
+            case NET_EXMSG_NETIF_IN:
+                do_netif_in(msg);
+                break;
+        }
+
         memory_pool_free(&msg_mem_pool, msg);
     }
 }
+
 
 /**
  * Start the message handler thread
@@ -68,17 +93,19 @@ net_err_t start_msg_handler (void) {
     return NET_OK;
 }
 
-
-net_err_t exmsg_netif_in(netif_t* netif) {
+/**
+ * This function will be called by the network interface driver
+ * to send a message to the message handler thread.
+ * The main purpose is to notify the message handler thread to process packets in the msg_queue
+ */
+net_err_t handler_netif_in(netif_t* netif) {
     exmsg_t* msg = memory_pool_alloc(&msg_mem_pool, -1);
     if (!msg) {
         log_warning(LOG_HANDLER, "no free block");
         return NET_ERR_MEM;
     }
-
-    static int id = 100;
-    msg->type = id++;
-
+    msg->type = NET_EXMSG_NETIF_IN;
+    msg->netif.netif = netif;
     net_err_t err = fixed_queue_send(&msg_queue, msg, -1);
     if (err < 0) {
         log_warning(LOG_HANDLER, "fixed queue full");

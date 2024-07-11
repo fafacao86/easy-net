@@ -10,8 +10,7 @@ net_err_t init_stack(void) {
     packet_buffer_init();
     netif_init();
     init_msg_handler();
-    start_easy_net();
-    loop_init();
+    //loop_init();
     return NET_OK;
 }
 

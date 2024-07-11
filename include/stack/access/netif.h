@@ -83,7 +83,7 @@ net_err_t netif_close(netif_t* netif);
 net_err_t netif_out(netif_t* netif, ipaddr_t* ipaddr, packet_t* buf);
 
 // functions for input and output queue of a network interface
-net_err_t netif_put_in(netif_t* netif, packet_t* buf, int tmo);
+net_err_t netif_put_in(netif_t* netif, packet_t* packet, int tmo);
 net_err_t netif_put_out(netif_t * netif, packet_t * buf, int tmo);
 packet_t * netif_get_in(netif_t* netif, int tmo);
 packet_t* netif_get_out(netif_t * netif, int tmo);

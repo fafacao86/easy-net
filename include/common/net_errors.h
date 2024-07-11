@@ -11,6 +11,7 @@ typedef enum _net_err_t {
     NET_ERR_PARAM = -6,  // Invalid parameter
     NET_ERR_STATE = -7,  // Invalid state
     NET_ERR_NONE = -8,   // No resource
+    NET_ERR_IO = -9,     // I/O device error
 }net_err_t;
 
 #endif

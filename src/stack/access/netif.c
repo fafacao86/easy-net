@@ -1,4 +1,4 @@
-#include "netif.h"
+﻿#include "netif.h"
 #include "memory_pool.h"
 #include "msg_handler.h"
 #include "log.h"
@@ -208,15 +208,15 @@ void netif_set_default(netif_t* netif) {
  * put a packet into the input queue of the network interface
  * and notify the message handler thread
  */
-net_err_t netif_put_in(netif_t* netif, packet_t * buf, int tmo) {
-    net_err_t err = fixed_queue_send(&netif->in_q, buf, tmo);
+net_err_t netif_put_in(netif_t* netif, packet_t * packet, int tmo) {
+    net_err_t err = fixed_queue_send(&netif->in_q, packet, tmo);
     if (err < 0) {
         log_warning(LOG_NETIF, "netif %s in_q full", netif->name);
         return NET_ERR_FULL;
     }
 
     // notify the message handler thread
-    exmsg_netif_in(netif);
+    handler_netif_in(netif);
     return NET_OK;
 }
 
@@ -236,13 +236,13 @@ net_err_t netif_put_out(netif_t* netif, packet_t * buf, int tmo) {
  * get a packet from the input queue of the network interface
  */
 packet_t* netif_get_in(netif_t* netif, int tmo) {
-    packet_t* buf = fixed_queue_recv(&netif->in_q, tmo);
+    packet_t* packet = fixed_queue_recv(&netif->in_q, tmo);
     // reset the position of the packet
-    if (buf) {
-        packet_reset_pos(buf);
-        return buf;
+    if (packet) {
+        packet_reset_pos(packet);
+        return packet;
     }
-    log_warning(LOG_NETIF, "netif %s in_q empty", netif->name);
+    log_info(LOG_NETIF, "netif %s in_q empty", netif->name);
     return (packet_t*)0;
 }
 
