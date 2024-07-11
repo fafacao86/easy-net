@@ -401,7 +401,7 @@ net_err_t packet_join(packet_t* dest, packet_t* src){
         packet_insert_page_list(dest, first, 1);
     }
     packet_free(src);
-    log_error(LOG_PACKET_BUFFER,"join result:");
+    log_info(LOG_PACKET_BUFFER,"join result:");
     display_check_buf(dest);
     return NET_OK;
 }
@@ -611,5 +611,28 @@ net_err_t packet_copy(packet_t * dest, packet_t* src, int size){
     return NET_OK;
 }
 
+/**
+ * fill size bytes starting from the current position with val.
+ * */
+net_err_t packet_fill(packet_t* packet, uint8_t val, int size){
+    assert_halt(packet->ref != 0, "buf freed")
 
+    if (!size) {
+        return NET_ERR_PARAM;
+    }
+    int remain_size = total_blk_remain(packet);
+    if (remain_size < size) {
+        log_error(LOG_PACKET_BUFFER, "size errorL %d < %d", remain_size, size);
+        return NET_ERR_SIZE;
+    }
+    while (size > 0) {
+        int blk_size = curr_page_remain(packet);
+        int curr_fill = size > blk_size ? blk_size : size;
+        plat_memset(packet->page_offset, val, curr_fill);
+        move_forward(packet, curr_fill);
+        size -= curr_fill;
+    }
+
+    return NET_OK;
+}
 
