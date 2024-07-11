@@ -14,4 +14,7 @@ void test_packet_buffer(){
     packet_add_header(pkt, 10, 1);
     packet_add_header(pkt, 20, 1);
     packet_buffer_mem_stat();
+    packet_remove_header(pkt, 40);
+    packet_buffer_mem_stat();
+    packet_resize(pkt, 300);
 }

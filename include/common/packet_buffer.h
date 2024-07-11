@@ -66,7 +66,18 @@ static inline uint8_t * packet_data (packet_t * packet) {
 void packet_buffer_mem_stat(void);
 net_err_t packet_buffer_init(void);
 packet_t * packet_alloc(int size);
+void packet_free (packet_t * pkt);
 net_err_t packet_add_header(packet_t * packet, int size, int cont);
+net_err_t packet_remove_header(packet_t* packet, int size);
+net_err_t packet_resize(packet_t * packet, int to_size);
+net_err_t packet_join(packet_t* dest, packet_t* src);
+net_err_t packet_set_cont(packet_t* buf, int size);
 
 
+void packet_reset_pos(packet_t * packet);
+void packet_inc_ref (packet_t * packet);
+net_err_t packet_seek(packet_t* packet, int offset);
+int packet_write(packet_t * packet, uint8_t* src, int size);
+int packet_read(packet_t* packet, uint8_t* dest, int size);
+net_err_t packet_copy(packet_t * dest, packet_t* src, int size);
 #endif //EASY_NET_PACKET_BUFFER_H
