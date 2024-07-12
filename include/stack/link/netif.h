@@ -20,6 +20,7 @@ typedef struct _netif_hwaddr_t {
  * operations supported by network interface
  */
 struct _netif_t;
+struct _link_layer_t;
 
 typedef struct _netif_ops_t {
     net_err_t(*open) (struct _netif_t* netif, void * data);
@@ -35,7 +36,7 @@ typedef enum netif_type_t {
     NETIF_TYPE_NONE = 0,                // none
     NETIF_TYPE_ETHER,                   // ethernet
     NETIF_TYPE_LOOP,                    // loop back
-    NETIF_TYPE_SIZE,
+    NETIF_TYPE_SIZE,                    // in order to get the size of this enum conveniently
 }netif_type_t;
 
 /**
@@ -61,6 +62,8 @@ typedef struct _netif_t {
     const netif_ops_t* ops;                 // operations supported by network interface
     void* ops_data;                         // data for operations
 
+    const struct _link_layer_t* link_layer;  // link layer interface
+
     list_node_t node;                       // multiple network interfaces support
 
     fixed_queue_t in_q;                            // input queue
@@ -70,6 +73,22 @@ typedef struct _netif_t {
 
     // some statistics member variables can be added here
 }netif_t;
+
+
+/**
+ * interface for upper layer protocols to interact with link layer
+ * there can be multiple link layer protocols, such as ethernet, wifi, etc.
+ * this interface abstracts those details away
+ */
+typedef struct _link_layer_t {
+    netif_type_t type;
+    net_err_t (*open)(struct _netif_t* netif);
+    void(*close)(struct _netif_t* netif);
+    net_err_t (*in)(struct _netif_t* netif, packet_t* buf);
+    net_err_t (*out)(struct _netif_t* netif, ipaddr_t* dest, packet_t* buf);
+}link_layer_t;
+net_err_t netif_register_layer(int type, const link_layer_t* layer);
+
 
 net_err_t netif_init(void);
 netif_t* netif_open(const char* dev_name, const netif_ops_t* driver, void* driver_data);

@@ -14,26 +14,15 @@ include_directories(
         ${PROJECT_SOURCE_DIR}/include/common
         ${PROJECT_SOURCE_DIR}/test
         ${PROJECT_SOURCE_DIR}/include/platform
-        ${PROJECT_SOURCE_DIR}/include/stack/access
+        ${PROJECT_SOURCE_DIR}/include/stack/link
         ${PROJECT_SOURCE_DIR}/include/stack/network
 )
 
 file(GLOB_RECURSE SOURCE_LIST "src/*.c" "src/*.h" "test/*.c" "test/*.h" "include/*.h")
 
 add_executable(${PROJECT_NAME} ${SOURCE_LIST}
-        test/memory_pool_test.c
-        include/common/fixed_queue.h
-        src/common/fixed_queue.c
-        "test/handler _test.c"
-        src/common/packet_buffer.c
-        include/common/packet_buffer.h
-        test/packet_test.c
-        include/stack/access/netif.h
-        include/stack/network/ipaddr.h
-        src/stack/network/ipaddr.c
-        src/stack/access/netif.c
-        include/stack/access/loop.h
-        src/stack/access/loop.c)
+        include/stack/link/ether.h
+        src/stack/link/ether.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

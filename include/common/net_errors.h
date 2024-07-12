@@ -12,6 +12,7 @@ typedef enum _net_err_t {
     NET_ERR_STATE = -7,  // Invalid state
     NET_ERR_NONE = -8,   // No resource
     NET_ERR_IO = -9,     // I/O device error
+    NET_ERR_EXIST = -10, // Resource already exists
 }net_err_t;
 
 #endif

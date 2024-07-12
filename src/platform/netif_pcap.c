@@ -42,7 +42,7 @@ void recv_thread(void* arg) {
  * */
 void send_thread(void* arg) {
     plat_printf("send thread start running...\n");
-    static uint8_t rw_buffer[NETIF_MTU+14];
+    static uint8_t rw_buffer[ETHER_MTU + 14];
     netif_t* netif = (netif_t*)arg;
     pcap_t* pcap = (pcap_t*)netif->ops_data;
 
@@ -90,7 +90,7 @@ static net_err_t netif_pcap_open(struct _netif_t* netif, void* ops_data) {
     netif->ops_data = pcap;
 
     netif->type = NETIF_TYPE_ETHER;
-    netif->mtu = NETIF_MTU;
+    netif->mtu = ETHER_MTU;
     netif_set_hwaddr(netif, dev_data->hwaddr, NETIF_HWADDR_SIZE);
 
     sys_thread_create(send_thread, netif);

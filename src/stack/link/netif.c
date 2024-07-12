@@ -7,7 +7,7 @@ static netif_t netif_buffer[NETIF_DEV_CNT];     // number of network interfaces
 static memory_pool_t netif_pool;                   // memory pool for netif
 static list_t netif_list;               // list of network interfaces
 static netif_t * netif_default;          // default network interface
-
+static const link_layer_t* link_layers[NETIF_TYPE_SIZE];
 
 
 #if LOG_DISP_ENABLED(DBG_NETIF)
@@ -55,6 +55,26 @@ void display_netif_list (void) {
 #define display_netif_list()
 #endif // DBG_NETIF
 
+net_err_t netif_register_layer(int type, const link_layer_t* layer) {
+    if ((type < 0) || (type >= NETIF_TYPE_SIZE)) {
+        log_error(LOG_NETIF, "type error: %d", type);
+        return NET_ERR_PARAM;
+    }
+    if (link_layers[type]) {
+        log_error(LOG_NETIF, "link layer: %d exist", type);
+        return NET_ERR_EXIST;
+    }
+    link_layers[type] = layer;
+    return NET_OK;
+}
+
+static const link_layer_t * netif_get_layer(int type) {
+    if ((type < 0) || (type >= NETIF_TYPE_SIZE)) {
+        return (const link_layer_t*)0;
+    }
+    return link_layers[type];
+}
+
 
 net_err_t netif_init(void) {
     log_info(LOG_NETIF, "init netif");
@@ -62,6 +82,7 @@ net_err_t netif_init(void) {
     init_list(&netif_list);
     memory_pool_init(&netif_pool, netif_buffer, sizeof(netif_t), NETIF_DEV_CNT, LOCKER_NONE);
     netif_default = (netif_t *)0;
+    plat_memset((void *)link_layers, 0, sizeof(link_layers));
     log_info(LOG_NETIF, "netif init done.\n");
     return NET_OK;
 }
@@ -104,6 +125,11 @@ netif_t* netif_open(const char* dev_name, const netif_ops_t* ops, void * ops_dat
         log_error(LOG_NETIF, "netif ops open error: %d");
         goto free_return;
     }
+    netif->link_layer = netif_get_layer(netif->type);
+    if (!netif->link_layer && (netif->type != NETIF_TYPE_LOOP)) {
+        log_error(LOG_NETIF, "no link layer. netif name: %s", dev_name);
+        goto free_return;
+    }
     netif->state = NETIF_OPENED;
 
     if (netif->type == NETIF_TYPE_NONE) {
@@ -144,7 +170,13 @@ net_err_t netif_set_active(netif_t* netif) {
         log_error(LOG_NETIF, "netif is not opened");
         return NET_ERR_STATE;
     }
-
+    if (netif->link_layer) {
+        net_err_t err = netif->link_layer->open(netif);
+        if (err < 0) {
+            log_info(LOG_NETIF, "active error.");
+            return err;
+        }
+    }
     // default netif can not be loopback
     if (!netif_default && (netif->type != NETIF_TYPE_LOOP)) {
         netif_set_default(netif);
@@ -161,7 +193,9 @@ net_err_t netif_set_deactive(netif_t* netif) {
         log_error(LOG_NETIF, "netif is not actived");
         return NET_ERR_STATE;
     }
-
+    if (netif->link_layer) {
+        netif->link_layer->close(netif);
+    }
     // free all packets in in_q and out_q before deactived
     packet_t* packet;
     while ((packet = fixed_queue_recv(&netif->in_q, -1))) {

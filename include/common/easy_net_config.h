@@ -10,6 +10,10 @@
 #define LOG_HANDLER             LEVEL_INFO			// log level for handler thread
 #define LOG_PACKET_BUFFER       LEVEL_INFO			// log level for packet buffer
 #define LOG_NETIF               LEVEL_INFO			// log level for network interface
+#define LOG_ETHER               LEVEL_INFO			// log level for ethernet
+#define LOG_ARP                 LEVEL_INFO			// log level for arp
+#define LOG_IP                  LEVEL_INFO			// log level for ip
+
 
 /**
  * Properties of the network stack.
@@ -21,12 +25,16 @@
 #define PACKET_BUFFER_SIZE         100       // size of the packer buffer memory pool
 
 /**
- * Access layer properties.
+ * Link layer properties.
  * */
 #define NETIF_HWADDR_SIZE           10                  // hardware address size, for mac the size is 6 bytes
 #define NETIF_NAME_SIZE             16                  // network interface name size
 #define NETIF_INQ_SIZE             50                  // network interface input queue size
 #define NETIF_OUTQ_SIZE            50                  // network interface output queue size
 #define NETIF_DEV_CNT              5                   // maximum number of network interfaces
-#define NETIF_MTU                  1500                // maximum transmission unit
+#define ETHER_MTU                  1500                // maximum transmission unit
+#define ETH_HWA_SIZE               6                   // hardware address size for ethernet
+
+
+
 #endif
