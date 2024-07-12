@@ -51,9 +51,15 @@ static net_err_t do_netif_in(exmsg_t* msg) {
     while ((packet = netif_get_in(netif, -1))) {
         log_info(LOG_HANDLER, "recv a packet");
 
-        packet_fill(packet, 0x88, 6);
-        net_err_t err = netif_out(netif, NULL, packet);
-        if(err < 0) {
+        net_err_t err;
+        if (netif->link_layer) {
+            err = netif->link_layer->in(netif, packet);
+            if (err < 0) {
+                packet_free(packet);
+                log_warning(LOG_HANDLER, "netif in failed. err=%d", err);
+            }
+        } else {
+            //err = ipv4_in(netif, buf);
             packet_free(packet);
         }
     }

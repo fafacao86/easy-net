@@ -2,6 +2,8 @@
 #include "memory_pool.h"
 #include "msg_handler.h"
 #include "log.h"
+#include "protocols.h"
+#include "ether.h"
 
 static netif_t netif_buffer[NETIF_DEV_CNT];     // number of network interfaces
 static memory_pool_t netif_pool;                   // memory pool for netif
@@ -294,13 +296,26 @@ packet_t* netif_get_out(netif_t* netif, int tmo) {
     return (packet_t*)0;
 }
 
-
+/**
+ * This function will call the network adaptor's transmit function to send a packet.
+ * So this abstract away the linker layer protocol, like ethernet, wifi, etc.
+ * */
 net_err_t netif_out(netif_t* netif, ipaddr_t * ipaddr, packet_t* packet) {
-    net_err_t err = netif_put_out(netif, packet, -1);
-    if (err < 0) {
-        log_warning(LOG_NETIF, "send to netif queue failed. err: %d", err);
-        return err;
+    if (netif->link_layer) {
+        net_err_t err = ether_raw_out(netif, NET_PROTOCOL_ARP, ether_broadcast_addr(), packet);
+        if (err < 0) {
+            log_warning(LOG_NETIF, "netif link out error: %d", err);
+            return err;
+        }
+        return NET_OK;
+    } else {
+        // if there is no link layer driver bound to the netif,
+        // we will just put the packet into the output queue of the netif.
+        net_err_t err = netif_put_out(netif, packet, -1);
+        if (err < 0) {
+            log_info(LOG_NETIF, "send to netif queue failed. err: %d", err);
+            return err;
+        }
+        return netif->ops->transmit(netif);
     }
-
-    return netif->ops->transmit(netif);
 }

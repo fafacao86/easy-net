@@ -2,12 +2,14 @@
 #include "msg_handler.h"
 #include "loop.h"
 #include "ether.h"
+#include "utils.h"
 
 /**
  * initialization of the protocol stack
  */
 net_err_t init_stack(void) {
     net_plat_init();
+    utils_init();
     packet_buffer_init();
     netif_init();
     ether_init();

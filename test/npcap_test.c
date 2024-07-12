@@ -17,6 +17,10 @@ net_err_t init_network_device(void) {
     ipaddr_from_str(&gw, netdev0_gw);
     netif_set_addr(netif, &ip, &mask, &gw);
     netif_set_active(netif);
+    packet_t * packet = packet_alloc(32);
+    packet_fill(packet, 0x53, 32);
+
+    netif_out(netif, NULL, packet);
     return NET_OK;
 }
 

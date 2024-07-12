@@ -22,7 +22,10 @@ file(GLOB_RECURSE SOURCE_LIST "src/*.c" "src/*.h" "test/*.c" "test/*.h" "include
 
 add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         include/stack/link/ether.h
-        src/stack/link/ether.c)
+        src/stack/link/ether.c
+        include/common/utils.h
+        src/common/utils.c
+        include/stack/network/protocols.h)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

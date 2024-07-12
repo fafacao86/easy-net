@@ -11,6 +11,7 @@
 #define LOG_PACKET_BUFFER       LEVEL_INFO			// log level for packet buffer
 #define LOG_NETIF               LEVEL_INFO			// log level for network interface
 #define LOG_ETHER               LEVEL_INFO			// log level for ethernet
+#define LOG_UTILS               LEVEL_INFO			// log level for utils
 #define LOG_ARP                 LEVEL_INFO			// log level for arp
 #define LOG_IP                  LEVEL_INFO			// log level for ip
 
@@ -18,6 +19,8 @@
 /**
  * Properties of the network stack.
  * */
+#define NET_ENDIAN_LITTLE           1
+
 #define HANDLER_BUFFER_SIZE         10			// size of the message buffer for the handler thread
 #define HANDLER_LOCK_TYPE           LOCKER_THREAD  // type of locker for the handler thread
 #define PACKET_PAGE_SIZE           128        // size of each page in a packet
@@ -34,7 +37,7 @@
 #define NETIF_DEV_CNT              5                   // maximum number of network interfaces
 #define ETHER_MTU                  1500                // maximum transmission unit
 #define ETH_HWA_SIZE               6                   // hardware address size for ethernet
-
+#define ETHER_MIN_PAYLOAD          46                  // minimum payload size for ethernet
 
 
 #endif
