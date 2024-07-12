@@ -591,7 +591,6 @@ int packet_read(packet_t* packet, uint8_t* dest, int size){
 
 net_err_t packet_copy(packet_t * dest, packet_t* src, int size){
     assert_halt(src->ref != 0, "buf freed")
-    assert_halt(dest->ref != 0, "buf freed")
 
     if ((total_blk_remain(dest) < size) || (total_blk_remain(src) < size)) {
         return NET_ERR_SIZE;

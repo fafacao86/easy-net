@@ -250,25 +250,19 @@ packet_t* netif_get_in(netif_t* netif, int tmo) {
  * get a packet from the output queue of the network interface
  */
 packet_t* netif_get_out(netif_t* netif, int tmo) {
-    packet_t* buf = fixed_queue_recv(&netif->out_q, tmo);
-    if (buf) {
-        packet_reset_pos(buf);
-        return buf;
+    packet_t* packet = fixed_queue_recv(&netif->out_q, tmo);
+    if (packet) {
+        packet_reset_pos(packet);
+        return packet;
     }
 
     log_warning(LOG_NETIF, "netif %s out_q empty", netif->name);
     return (packet_t*)0;
 }
 
-/**
- * @brief 发送一个网络包到网络接口上, 目标地址为ipaddr
- * 在发送前，先判断驱动是否正在发送，如果是则将其插入到发送队列，等驱动有空后，由驱动自行取出发送。
- * 否则，加入发送队列后，启动驱动发送
- */
-net_err_t netif_out(netif_t* netif, ipaddr_t * ipaddr, packet_t* buf) {
-    // 缺省情况，将数据包插入就绪队列，然后通知驱动程序开始发送
-    // 硬件当前发送如果未进行，则启动发送，否则不处理，等待硬件中断自动触发进行发送
-    net_err_t err = netif_put_out(netif, buf, -1);
+
+net_err_t netif_out(netif_t* netif, ipaddr_t * ipaddr, packet_t* packet) {
+    net_err_t err = netif_put_out(netif, packet, -1);
     if (err < 0) {
         log_warning(LOG_NETIF, "send to netif queue failed. err: %d", err);
         return err;

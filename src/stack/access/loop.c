@@ -54,11 +54,6 @@ net_err_t loop_init(void) {
     ipaddr_from_str(&mask, "255.0.0.0");
     netif_set_addr(netif, &ip, &mask, (ipaddr_t*)0);
     netif_set_active(netif);
-
-    // test
-    packet_t * buf = packet_alloc(100);
-    netif_out(netif, NULL, buf);
-
     log_info(LOG_NETIF, "init done");
     return NET_OK;;
 }

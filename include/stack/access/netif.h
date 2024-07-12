@@ -80,7 +80,7 @@ net_err_t netif_set_deactive(netif_t* netif);
 void netif_set_default (netif_t * netif);
 net_err_t netif_close(netif_t* netif);
 
-net_err_t netif_out(netif_t* netif, ipaddr_t* ipaddr, packet_t* buf);
+net_err_t netif_out(netif_t* netif, ipaddr_t* ipaddr, packet_t* packet);
 
 // functions for input and output queue of a network interface
 net_err_t netif_put_in(netif_t* netif, packet_t* packet, int tmo);

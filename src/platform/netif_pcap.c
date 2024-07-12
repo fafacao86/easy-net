@@ -4,6 +4,11 @@
 #include "netif_pcap.h"
 #include "log.h"
 
+/**
+ * Listen on physical network interface and receive packets.
+ * When a packet is received, put a new message o handler thread via msg queue.
+ * When failed, free the packet. When success, handler thread will free the packet.
+ * */
 void recv_thread(void* arg) {
     plat_printf("recv thread start running...\n");
     netif_t* netif = (netif_t*)arg;
@@ -31,10 +36,31 @@ void recv_thread(void* arg) {
     }
 }
 
+/**
+ * Polling the out queue of network interface and send packets.
+ * Packets are put by handler
+ * */
 void send_thread(void* arg) {
     plat_printf("send thread start running...\n");
+    static uint8_t rw_buffer[NETIF_MTU+14];
+    netif_t* netif = (netif_t*)arg;
+    pcap_t* pcap = (pcap_t*)netif->ops_data;
+
     while (1) {
-        sys_sleep(1);
+        packet_t* packet = netif_get_out(netif, 0);
+        if (packet == (packet_t*)0) {
+            continue;
+        }
+
+        int total_size = packet->total_size;
+        plat_memset(rw_buffer, 0, sizeof(rw_buffer));
+        packet_read(packet, rw_buffer, total_size);
+        packet_free(packet);
+        if (pcap_inject(pcap, rw_buffer, total_size) == -1) {
+            log_warning(LOG_NETIF, "pcap send: send packet failed!:%s\n", pcap_geterr(pcap));
+            log_warning(LOG_NETIF, "pcap send: pcaket size %d\n", total_size);
+            continue;
+        }
     }
 }
 
@@ -64,7 +90,7 @@ static net_err_t netif_pcap_open(struct _netif_t* netif, void* ops_data) {
     netif->ops_data = pcap;
 
     netif->type = NETIF_TYPE_ETHER;
-    netif->mtu = 1500;
+    netif->mtu = NETIF_MTU;
     netif_set_hwaddr(netif, dev_data->hwaddr, NETIF_HWADDR_SIZE);
 
     sys_thread_create(send_thread, netif);
@@ -82,6 +108,7 @@ static void netif_pcap_close(struct _netif_t* netif) {
 
 
 static net_err_t netif_pcap_transmit (struct _netif_t* netif) {
+    // do nothing, because the sender thread will send the packets
     return NET_OK;
 }
 

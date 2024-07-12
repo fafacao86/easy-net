@@ -28,4 +28,5 @@
 #define NETIF_INQ_SIZE             50                  // network interface input queue size
 #define NETIF_OUTQ_SIZE            50                  // network interface output queue size
 #define NETIF_DEV_CNT              5                   // maximum number of network interfaces
+#define NETIF_MTU                  1500                // maximum transmission unit
 #endif

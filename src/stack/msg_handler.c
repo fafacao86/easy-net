@@ -51,8 +51,11 @@ static net_err_t do_netif_in(exmsg_t* msg) {
     while ((packet = netif_get_in(netif, -1))) {
         log_info(LOG_HANDLER, "recv a packet");
 
-        // todo: process the packet here
-        packet_free(packet);
+        packet_fill(packet, 0x88, 6);
+        net_err_t err = netif_out(netif, NULL, packet);
+        if(err < 0) {
+            packet_free(packet);
+        }
     }
 
     return NET_OK;
