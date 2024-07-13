@@ -25,7 +25,10 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         src/stack/link/ether.c
         include/common/utils.h
         src/common/utils.c
-        include/stack/network/protocols.h)
+        include/stack/network/protocols.h
+        include/common/timer.h
+        src/common/timer.c
+        test/timer_test.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

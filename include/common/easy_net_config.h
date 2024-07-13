@@ -14,7 +14,7 @@
 #define LOG_UTILS               LEVEL_INFO			// log level for utils
 #define LOG_ARP                 LEVEL_INFO			// log level for arp
 #define LOG_IP                  LEVEL_INFO			// log level for ip
-
+#define LOG_TIMER                LEVEL_INFO			// log level for timer
 
 /**
  * Properties of the network stack.
@@ -26,6 +26,8 @@
 #define PACKET_PAGE_SIZE           128        // size of each page in a packet
 #define PACKET_PAGE_CNT            100         // size of the packer memory pool
 #define PACKET_BUFFER_SIZE         100       // size of the packer buffer memory pool
+
+#define TIMER_SCAN_PERIOD           500         // period of timer scan
 
 /**
  * Link layer properties.

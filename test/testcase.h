@@ -19,4 +19,7 @@ void test_msg_handler();
 
 #include "packet_buffer.h"
 void test_packet_buffer();
+
+#include "timer.h"
+void test_timer();
 #endif

@@ -3,12 +3,14 @@
 #include "loop.h"
 #include "ether.h"
 #include "utils.h"
+#include "timer.h"
 
 /**
  * initialization of the protocol stack
  */
 net_err_t init_stack(void) {
     net_plat_init();
+    net_timer_init();
     utils_init();
     packet_buffer_init();
     netif_init();

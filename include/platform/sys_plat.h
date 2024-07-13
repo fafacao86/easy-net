@@ -164,6 +164,7 @@ void sys_sleep(int ms);
 sys_thread_t sys_thread_self (void);
 
 void sys_plat_init(void);
-
+void sys_time_curr (net_time_t * time);
+int sys_time_goes (net_time_t * pre);
 
 #endif // SYS_PLAT_H

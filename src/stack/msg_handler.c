@@ -15,6 +15,8 @@
 #include "memory_pool.h"
 #include "log.h"
 #include "netif.h"
+#include "sys_plat.h"
+#include "timer.h"
 
 static void * msg_tbl[HANDLER_BUFFER_SIZE];  // For the message queue
 static fixed_queue_t msg_queue;            // message queue
@@ -73,21 +75,29 @@ static net_err_t do_netif_in(exmsg_t* msg) {
  */
 static void work_thread (void * arg) {
     log_info(LOG_HANDLER, "handler thread is running....\n");
+    net_time_t time;
+    sys_time_curr(&time);
+    int time_last = TIMER_SCAN_PERIOD;
     while (1) {
-        exmsg_t* msg = (exmsg_t*)fixed_queue_recv(&msg_queue, 0);
-        if (msg == (exmsg_t*)0) {
-            continue;
+        int first_tmo = net_timer_first_tmo();
+        exmsg_t* msg = (exmsg_t*)fixed_queue_recv(&msg_queue, first_tmo);
+        if (msg) {
+            log_info(LOG_HANDLER, "recieve a msg(%p): %d", msg, msg->type);
+            switch (msg->type) {
+                case NET_EXMSG_NETIF_IN:
+                    do_netif_in(msg);
+                    break;
+            }
+            memory_pool_free(&msg_mem_pool, msg);
         }
-
-        log_info(LOG_HANDLER, "recieve a msg(%p): %d", msg, msg->type);
-        switch (msg->type) {
-            case NET_EXMSG_NETIF_IN:
-                do_netif_in(msg);
-                break;
+        int diff_ms = sys_time_goes(&time);
+        time_last -= diff_ms;
+        if (time_last < 0) {
+            net_timer_check_tmo(diff_ms);
+            time_last = TIMER_SCAN_PERIOD;
         }
-
-        memory_pool_free(&msg_mem_pool, msg);
     }
+
 }
 
 
