@@ -14,7 +14,7 @@
 #define LOG_UTILS               LEVEL_INFO			// log level for utils
 #define LOG_ARP                 LEVEL_INFO			// log level for arp
 #define LOG_IP                  LEVEL_INFO			// log level for ip
-#define LOG_TIMER                LEVEL_INFO			// log level for timer
+#define LOG_TIMER                LEVEL_NONE			// log level for timer
 
 /**
  * Properties of the network stack.
@@ -40,6 +40,12 @@
 #define ETHER_MTU                  1500                // maximum transmission unit
 #define ETH_HWA_SIZE               6                   // hardware address size for ethernet
 #define ETHER_MIN_PAYLOAD          46                  // minimum payload size for ethernet
+
+
+/**
+ * Network layer properties.
+ */
+#define ARP_CACHE_SIZE             50                 // size of the arp cache
 
 
 #endif

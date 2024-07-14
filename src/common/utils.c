@@ -1,4 +1,4 @@
-#include "utils.h"
+﻿#include "utils.h"
 #include "log.h"
 
 static int is_little_endian(void) {

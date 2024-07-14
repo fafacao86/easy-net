@@ -175,7 +175,8 @@ net_err_t netif_set_active(netif_t* netif) {
     if (netif->link_layer) {
         net_err_t err = netif->link_layer->open(netif);
         if (err < 0) {
-            log_info(LOG_NETIF, "active error.");
+            // error might be caused by the ip address conflict
+            log_error(LOG_NETIF, "active error.");
             return err;
         }
     }
@@ -302,7 +303,7 @@ packet_t* netif_get_out(netif_t* netif, int tmo) {
  * */
 net_err_t netif_out(netif_t* netif, ipaddr_t * ipaddr, packet_t* packet) {
     if (netif->link_layer) {
-        net_err_t err = ether_raw_out(netif, NET_PROTOCOL_ARP, ether_broadcast_addr(), packet);
+        net_err_t err = netif->link_layer->out(netif, ipaddr, packet);
         if (err < 0) {
             log_warning(LOG_NETIF, "netif link out error: %d", err);
             return err;

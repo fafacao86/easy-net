@@ -28,7 +28,9 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         include/stack/network/protocols.h
         include/common/timer.h
         src/common/timer.c
-        test/timer_test.c)
+        test/timer_test.c
+        include/stack/network/arp.h
+        src/stack/network/arp.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

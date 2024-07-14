@@ -46,3 +46,15 @@ void ipaddr_copy(ipaddr_t * dest, const ipaddr_t * src) {
     }
     dest->q_addr = src->q_addr;
 }
+
+
+int ipaddr_is_equal(const ipaddr_t * ipaddr1, const ipaddr_t * ipaddr2) {
+    return ipaddr1->q_addr == ipaddr2->q_addr;
+}
+
+void ipaddr_to_buf(const ipaddr_t* src, uint8_t* ip_buf) {
+    ip_buf[0] = src->a_addr[0];
+    ip_buf[1] = src->a_addr[1];
+    ip_buf[2] = src->a_addr[2];
+    ip_buf[3] = src->a_addr[3];
+}

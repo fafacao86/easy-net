@@ -4,6 +4,7 @@
 #include "log.h"
 #include "utils.h"
 #include "protocols.h"
+#include "arp.h"
 
 #if LOG_DISP_ENABLED(LOG_ETHER)
 static void display_ether_display(char * title, ether_frame_t * frame, int size) {
@@ -33,11 +34,21 @@ static void display_ether_display(char * title, ether_frame_t * frame, int size)
 #endif
 
 static net_err_t ether_open(netif_t* netif) {
-    return NET_OK;
+    return arp_make_gratuitous(netif);
 }
 
 static void ether_close(netif_t* netif) {
 
+}
+
+static net_err_t ether_out(netif_t* netif, ipaddr_t* ip_addr, packet_t* packet) {
+    // if destination address is ourselves, put it in our input queue
+    if (ipaddr_is_equal(&netif->ipaddr, ip_addr)) {
+        return ether_raw_out(netif, NET_PROTOCOL_IPv4, (const uint8_t *)netif->hwaddr.addr, packet);
+    }
+    // send ARP request to resolve the destination address
+    arp_make_request(netif, ip_addr);
+    return NET_OK;
 }
 
 static net_err_t validate_frame_format(ether_frame_t * frame, int total_size) {
@@ -79,7 +90,7 @@ net_err_t ether_init(void) {
             .open = ether_open,
             .close = ether_close,
             .in = ether_in,
-            // .out = ether_out,
+            .out = ether_out,
     };
 
     log_info(LOG_ETHER, "init ether");
