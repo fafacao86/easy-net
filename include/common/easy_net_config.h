@@ -5,13 +5,13 @@
 /**
  * Configure the log level for each module.
  * */
-#define LOG_MEMORY_POOL		    LEVEL_INFO			// log level for memory pool
-#define LOG_QUEUE               LEVEL_INFO			// log level for queue
-#define LOG_HANDLER             LEVEL_INFO			// log level for handler thread
-#define LOG_PACKET_BUFFER       LEVEL_INFO			// log level for packet buffer
-#define LOG_NETIF               LEVEL_INFO			// log level for network interface
-#define LOG_ETHER               LEVEL_INFO			// log level for ethernet
-#define LOG_UTILS               LEVEL_INFO			// log level for utils
+#define LOG_MEMORY_POOL		    LEVEL_ERROR			// log level for memory pool
+#define LOG_QUEUE               LEVEL_ERROR			// log level for queue
+#define LOG_HANDLER             LEVEL_ERROR			// log level for handler thread
+#define LOG_PACKET_BUFFER       LEVEL_ERROR			// log level for packet buffer
+#define LOG_NETIF               LEVEL_ERROR			// log level for network interface
+#define LOG_ETHER               LEVEL_ERROR			// log level for ethernet
+#define LOG_UTILS               LEVEL_ERROR			// log level for utils
 #define LOG_ARP                 LEVEL_INFO			// log level for arp
 #define LOG_IP                  LEVEL_INFO			// log level for ip
 #define LOG_TIMER                LEVEL_NONE			// log level for timer

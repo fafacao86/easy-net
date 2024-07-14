@@ -81,3 +81,72 @@ net_err_t arp_make_gratuitous(netif_t* netif) {
     // target and sender ip address both are the current ip address of the interface
     return arp_make_request(netif, &netif->ipaddr);
 }
+
+
+
+static net_err_t validate_arp_packet(arp_pkt_t* arp_packet, uint16_t size, netif_t* netif) {
+    if (size < sizeof(arp_pkt_t)) {
+        log_warning(LOG_ARP, "packet size error: %d < %d", size, (int)sizeof(arp_pkt_t));
+        return NET_ERR_SIZE;
+    }
+
+    // check supported hardware type and protocol type
+    if ((e_ntohs(arp_packet->htype) != ARP_HW_ETHER) ||
+        (arp_packet->hlen != ETH_HWA_SIZE) ||
+        (e_ntohs(arp_packet->ptype) != NET_PROTOCOL_IPv4) ||
+        (arp_packet->plen != IPV4_ADDR_SIZE)) {
+        log_warning(LOG_ARP, "packet incorrect");
+        return NET_ERR_NOT_SUPPORT;
+    }
+
+    // there might be some other type of ARP packet such as RARP,
+    // but we only support request and reply
+    uint32_t opcode = e_ntohs(arp_packet->opcode);
+    if ((opcode != ARP_REQUEST) && (opcode != ARP_REPLY)) {
+        log_warning(LOG_ARP, "unknown opcode=%d", arp_packet->opcode);
+        return NET_ERR_NOT_SUPPORT;
+    }
+    return NET_OK;
+}
+
+
+net_err_t arp_make_reply(netif_t* netif, packet_t* packet) {
+    arp_pkt_t* arp_packet = (arp_pkt_t*)packet_data(packet);
+
+    // swap the sender and target address
+    arp_packet->opcode = e_htons(ARP_REPLY);
+    plat_memcpy(arp_packet->target_haddr, arp_packet->send_haddr, ETH_HWA_SIZE);
+    plat_memcpy(arp_packet->target_paddr, arp_packet->send_paddr, IPV4_ADDR_SIZE);
+    plat_memcpy(arp_packet->send_haddr, netif->hwaddr.addr, ETH_HWA_SIZE);
+    ipaddr_to_buf(&netif->ipaddr, arp_packet->send_paddr);
+    return ether_raw_out(netif, NET_PROTOCOL_ARP, arp_packet->target_haddr, packet);
+}
+
+
+
+/**
+ * process incoming ARP packet
+ * only handles uni-cast ARP
+ * and only handles arp request to this netif, and not scan other netifs on this host
+ */
+net_err_t arp_in(netif_t* netif, packet_t* packet) {
+    log_info(LOG_ARP, "arp in");
+    net_err_t err = packet_set_cont(packet, sizeof(arp_pkt_t));
+    if (err < 0) {
+        return err;
+    }
+    arp_pkt_t * arp_packet = (arp_pkt_t*)packet_data(packet);
+    if (validate_arp_packet(arp_packet, packet->total_size, netif) != NET_OK) {
+        return err;
+    }
+
+    if (e_ntohs(arp_packet->opcode) == ARP_REQUEST) {
+        log_info(LOG_ARP, "arp is request. try to send reply");
+        return arp_make_reply(netif, packet);
+    }
+
+    // don't forget to free the packet, because we return NET_OK,
+    // then we are responsible for freeing the packet
+    packet_free(packet);
+    return NET_OK;
+}

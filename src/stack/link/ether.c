@@ -77,8 +77,20 @@ static net_err_t ether_in(netif_t* netif, packet_t* packet) {
     }
 
     display_ether_display("ether in", pkt, packet->total_size);
-    packet_free(packet);
-    return NET_OK;
+    switch (e_ntohs(pkt->hdr.protocol)) {
+        case NET_PROTOCOL_ARP: {
+            err = packet_remove_header(packet, sizeof(ether_hdr_t));
+            if (err < 0) {
+                log_error(LOG_ETHER, "remove ether header failed, packet size: %d", packet->total_size);
+                return NET_ERR_SIZE;
+            }
+
+            return arp_in(netif, packet);
+        }
+        default:
+            log_warning(LOG_ETHER, "unknown packet, ignore it.");
+            return NET_ERR_NOT_SUPPORT;
+    }
 }
 
 /**

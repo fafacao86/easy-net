@@ -47,5 +47,6 @@ typedef struct _arp_entry_t {
 net_err_t arp_init (void);
 net_err_t arp_make_request(netif_t* netif, const ipaddr_t* pro_addr);
 net_err_t arp_make_gratuitous(netif_t* netif);
-
+net_err_t arp_in(netif_t* netif, packet_t * packet);
+net_err_t arp_make_reply(netif_t* netif, packet_t* packet);
 #endif //EASY_NET_ARP_H
