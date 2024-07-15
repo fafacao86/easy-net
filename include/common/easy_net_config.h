@@ -46,6 +46,6 @@
  * Network layer properties.
  */
 #define ARP_CACHE_SIZE             50                 // size of the arp cache
-
+#define ARP_MAX_PKT_WAIT            10                 // maximum number of packets to wait for arp reply
 
 #endif

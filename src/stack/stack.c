@@ -4,6 +4,7 @@
 #include "ether.h"
 #include "utils.h"
 #include "timer.h"
+#include "arp.h"
 
 /**
  * initialization of the protocol stack
@@ -15,6 +16,7 @@ net_err_t init_stack(void) {
     packet_buffer_init();
     netif_init();
     ether_init();
+    arp_init();
     init_msg_handler();
     //loop_init();
     return NET_OK;

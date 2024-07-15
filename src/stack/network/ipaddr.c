@@ -58,3 +58,10 @@ void ipaddr_to_buf(const ipaddr_t* src, uint8_t* ip_buf) {
     ip_buf[2] = src->a_addr[2];
     ip_buf[3] = src->a_addr[3];
 }
+
+void ipaddr_from_buf(ipaddr_t* dest, const uint8_t * ip_buf) {
+    dest->a_addr[0] = ip_buf[0];
+    dest->a_addr[1] = ip_buf[1];
+    dest->a_addr[2] = ip_buf[2];
+    dest->a_addr[3] = ip_buf[3];
+}

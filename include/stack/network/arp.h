@@ -38,7 +38,8 @@ typedef struct _arp_entry_t {
         NET_ARP_RESOLVED,               // RESOLVED
         NET_ARP_WAITING,                // PENDING
     } state;
-
+    int tmo;                // timeout
+    int retry;              // retry count
     netif_t* netif;
     list_node_t node;
     list_t buf_list;        // packets to be sent when resolved
@@ -49,4 +50,5 @@ net_err_t arp_make_request(netif_t* netif, const ipaddr_t* pro_addr);
 net_err_t arp_make_gratuitous(netif_t* netif);
 net_err_t arp_in(netif_t* netif, packet_t * packet);
 net_err_t arp_make_reply(netif_t* netif, packet_t* packet);
+net_err_t arp_resolve(netif_t* netif, const ipaddr_t* ipaddr, packet_t* packet);
 #endif //EASY_NET_ARP_H

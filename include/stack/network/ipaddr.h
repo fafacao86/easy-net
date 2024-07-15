@@ -28,6 +28,5 @@ ipaddr_t * ipaddr_get_any(void);
 void ipaddr_copy(ipaddr_t * dest, const ipaddr_t * src);
 int ipaddr_is_equal(const ipaddr_t * ipaddr1, const ipaddr_t * ipaddr2);
 void ipaddr_to_buf(const ipaddr_t* src, uint8_t* ip_buf);
-
-
+void ipaddr_from_buf(ipaddr_t* dest, const uint8_t * ip_buf);
 #endif //EASY_NET_IPADDR_H
