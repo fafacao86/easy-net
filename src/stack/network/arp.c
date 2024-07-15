@@ -3,15 +3,19 @@
 #include "log.h"
 #include "protocols.h"
 #include "utils.h"
+#include "timer.h"
 
 static arp_entry_t cache_tbl[ARP_CACHE_SIZE];
 static memory_pool_t arp_cache_pool;
 static list_t cache_list;
+static net_timer_t cache_timer;
 static const uint8_t empty_hwaddr[] = {0, 0, 0, 0, 0, 0};
+
+#define to_scan_cnt(tmo)     (tmo / ARP_TIMER_TMO)    // timout divided by timer interval
 
 #if LOG_DISP_ENABLED(LOG_ARP)
 void display_arp_entry(arp_entry_t* entry) {
-    plat_printf("%d: ", (int)(entry - cache_tbl));       // 序号
+    plat_printf("%d: ", (int)(entry - cache_tbl));
     dump_ip_buf(" ip:", entry->paddr);
     dump_mac(" mac:", entry->haddr);
     plat_printf(" tmo: %d, retry: %d, %s, buf: %d\n",
@@ -159,8 +163,12 @@ static void cache_entry_set(arp_entry_t* entry, const uint8_t* hwaddr,
     plat_memcpy(entry->paddr, proaddr, IPV4_ADDR_SIZE);
     entry->state = state;
     entry->netif = netif;
-    entry->tmo = 0;
-    entry->retry = 0;
+    if (state == NET_ARP_RESOLVED) {
+        entry->tmo = to_scan_cnt(ARP_ENTRY_STABLE_TMO);         // timout for stable entry refresh update
+    } else {
+        entry->tmo = to_scan_cnt(ARP_ENTRY_PENDING_TMO);        // timout for pending entry retry
+    }
+    entry->retry = ARP_ENTRY_RETRY_CNT;
 }
 
 
@@ -207,6 +215,61 @@ static net_err_t cache_init(void) {
     return NET_OK;
 }
 
+static void arp_cache_tmo(net_timer_t* timer, void * arg) {
+    int changed_cnt = 0;
+
+    // iterate all cache entries with state of stable or waiting
+    list_node_t* curr, * next;
+    for (curr = cache_list.first; curr; curr = next) {
+        arp_entry_t* entry = list_entry(curr, arp_entry_t, node);
+        next = list_node_next(curr);
+        if (--entry->tmo > 0) {
+            continue;
+        }
+        changed_cnt++;
+        switch (entry->state) {
+            case NET_ARP_RESOLVED: {
+                // when timout at stable state, change to pending state, send ARP request to update cache
+                log_info(LOG_ARP, "stable to pending:");
+                display_arp_entry(entry);
+                ipaddr_t ipaddr;
+                ipaddr_from_buf(&ipaddr, entry->paddr);
+                entry->state = NET_ARP_WAITING;
+                entry->tmo = to_scan_cnt(ARP_ENTRY_PENDING_TMO);
+                entry->retry = to_scan_cnt(ARP_ENTRY_RETRY_CNT);
+                arp_make_request(entry->netif, &ipaddr);
+                break;
+            }
+            case NET_ARP_WAITING: {
+                if (--entry->retry == 0) {
+                    log_info(LOG_ARP, "pending tmo, free it.");
+                    display_arp_entry(entry);
+                    cache_free(entry);
+                } else {
+                    log_info(LOG_ARP, "pending tmo, send request.");
+                    display_arp_entry(entry);
+                    ipaddr_t ipaddr;
+                    ipaddr_from_buf(&ipaddr, entry->paddr);
+                    entry->tmo = to_scan_cnt(ARP_ENTRY_PENDING_TMO);
+                    arp_make_request(entry->netif, &ipaddr);
+                }
+                break;
+            }
+            default: {
+                log_error(LOG_ARP, "unknown arp state.");
+                display_arp_entry(entry);
+                break;
+            }
+        }
+    }
+    if (changed_cnt) {
+        log_info(LOG_ARP, "%d arp entry changed.", changed_cnt);
+        display_arp_tbl();
+    }
+}
+
+
+
 /**
  * init arp module
  */
@@ -216,7 +279,11 @@ net_err_t arp_init(void) {
         log_error(LOG_ARP, "arp cache init failed.");
         return err;
     }
-
+    err = net_timer_add(&cache_timer, "arp timer", arp_cache_tmo, (void *)0, ARP_TIMER_TMO *1000, NET_TIMER_RELOAD);
+    if (err < 0) {
+        log_error(LOG_ARP, "create timer failed: %d.", err);
+        return err;
+    }
     return NET_OK;
 }
 
@@ -402,4 +469,37 @@ net_err_t arp_resolve(netif_t* netif, const ipaddr_t* ipaddr, packet_t* packet) 
         // send ARP request to get the MAC address of the target IP address
         return arp_make_request(netif, ipaddr);
     }
+}
+
+
+
+void arp_clear(netif_t* netif) {
+    list_node_t* node;
+    for (node = list_first(&cache_list); node; node = node->next) {
+        list_node_t* next = list_node_next(node);
+        // if the netif matches, then clear all the entries in the cache
+        arp_entry_t* e = list_entry(node, arp_entry_t, node);
+        if (e->netif == netif) {
+            cache_clear_all(e);
+            list_remove(&cache_list, node);
+            memory_pool_free(&arp_cache_pool, e);
+        }
+        node = next;
+    }
+}
+
+/**
+ * return the corresponding hardware address of the IP address
+ * the interesting part is the local broadcast address and direct broadcast address
+ * */
+const uint8_t* arp_find(netif_t* netif, ipaddr_t* ip) {
+    // if the ip address is broadcast address. return the hardware broadcast address
+    if (ipaddr_is_local_broadcast(ip) || ipaddr_is_direct_broadcast(ip, &netif->netmask)) {
+        return ether_broadcast_addr();
+    }
+    arp_entry_t* entry = cache_find(ip->a_addr);
+    if (entry && (entry->state == NET_ARP_RESOLVED)) {
+        return entry->haddr;
+    }
+    return (const uint8_t*)0;
 }

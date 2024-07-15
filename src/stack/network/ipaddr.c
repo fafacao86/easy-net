@@ -65,3 +65,30 @@ void ipaddr_from_buf(ipaddr_t* dest, const uint8_t * ip_buf) {
     dest->a_addr[2] = ip_buf[2];
     dest->a_addr[3] = ip_buf[3];
 }
+
+
+/**
+ * local address is used to send data to the local network, and is not routed.
+ * this can be used to access local services like DHCP
+ */
+int ipaddr_is_local_broadcast(const ipaddr_t * ipaddr) {
+    return ipaddr->q_addr == IPV4_ADDR_BROADCAST;
+}
+
+/**
+ * get host address from ip address and netmask
+ */
+ipaddr_t ipaddr_get_host(const ipaddr_t * ipaddr, const ipaddr_t * netmask) {
+    ipaddr_t hostid;
+
+    hostid.q_addr = ipaddr->q_addr & ~netmask->q_addr;
+    return hostid;
+}
+
+/**
+ * direct broadcast address is used to send data to a specific subnet, even across routers.
+ */
+int ipaddr_is_direct_broadcast(const ipaddr_t * ipaddr, const ipaddr_t * netmask) {
+    ipaddr_t hostid = ipaddr_get_host(ipaddr, netmask);
+    return hostid.q_addr == (IPV4_ADDR_BROADCAST & ~netmask->q_addr);
+}

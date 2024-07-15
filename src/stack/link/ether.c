@@ -46,11 +46,17 @@ static net_err_t ether_out(netif_t* netif, ipaddr_t* ip_addr, packet_t* packet) 
     if (ipaddr_is_equal(&netif->ipaddr, ip_addr)) {
         return ether_raw_out(netif, NET_PROTOCOL_IPv4, (const uint8_t *)netif->hwaddr.addr, packet);
     }
-    // resolve the destination address
-    // if the destination address is already resolved, send the packet directly
-    // otherwise, send ARP request or put the packet in the ARP waiting list
-    // when the ARP reply is received, the packet will be sent out
-    return arp_resolve(netif, ip_addr, packet);
+    const uint8_t* hwaddr = arp_find(netif, ip_addr);
+    // if the destination is resolved or is broadcast address, send the packet directly
+    if (hwaddr) {
+        return ether_raw_out(netif, NET_PROTOCOL_IPv4, hwaddr, packet);
+    } else {
+        // resolve the destination address
+        // if the destination address is already resolved, send the packet directly
+        // otherwise, send ARP request or put the packet in the ARP waiting list
+        // when the ARP reply is received, the packet will be sent out
+        return arp_resolve(netif, ip_addr, packet);
+    }
 }
 
 static net_err_t validate_frame_format(ether_frame_t * frame, int total_size) {

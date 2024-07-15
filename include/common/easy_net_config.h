@@ -1,4 +1,4 @@
-#ifndef EASY_NET_EASY_NET_CONFIG_H
+﻿#ifndef EASY_NET_EASY_NET_CONFIG_H
 #define EASY_NET_EASY_NET_CONFIG_H
 
 
@@ -47,5 +47,9 @@
  */
 #define ARP_CACHE_SIZE             50                 // size of the arp cache
 #define ARP_MAX_PKT_WAIT            10                 // maximum number of packets to wait for arp reply
+#define ARP_ENTRY_STABLE_TMO			5 // (20*60)		    // timout for stable arp entry，usually 20 minutes
+#define ARP_ENTRY_PENDING_TMO			3               // pending arp entry timeout， RFC1122 suggests 1 second
+#define ARP_ENTRY_RETRY_CNT				3               // pending arp entry retry count
+#define ARP_TIMER_TMO               1               // ARP scanner timer timeout value, in seconds
 
 #endif

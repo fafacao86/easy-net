@@ -51,4 +51,6 @@ net_err_t arp_make_gratuitous(netif_t* netif);
 net_err_t arp_in(netif_t* netif, packet_t * packet);
 net_err_t arp_make_reply(netif_t* netif, packet_t* packet);
 net_err_t arp_resolve(netif_t* netif, const ipaddr_t* ipaddr, packet_t* packet);
+const uint8_t* arp_find(netif_t* netif, ipaddr_t* ip_addr);
+void arp_clear(netif_t * netif);
 #endif //EASY_NET_ARP_H

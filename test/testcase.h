@@ -22,4 +22,7 @@ void test_packet_buffer();
 
 #include "timer.h"
 void test_timer();
+
+#include "netif.h"
+void test_arp(netif_t * netif);
 #endif
