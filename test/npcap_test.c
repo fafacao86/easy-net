@@ -27,7 +27,8 @@ int main (void) {
     //test_timer();
     init_network_device();
     start_easy_net();
-    test_arp(netif);
+    //test_arp(netif);
+    test_ipv4();
 //    init_network_device();
     //start_easy_net();
     //test_logging();

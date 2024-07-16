@@ -241,6 +241,11 @@ void netif_set_default(netif_t* netif) {
     netif_default = netif;
 }
 
+netif_t * netif_get_default (void) {
+    return netif_default;
+}
+
+
 /**
  * put a packet into the input queue of the network interface
  * and notify the message handler thread

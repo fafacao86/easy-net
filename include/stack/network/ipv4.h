@@ -53,4 +53,5 @@ net_err_t ipv4_in(netif_t * netif, packet_t *buf);
 static inline int ipv4_hdr_size(ipv4_pkt_t* pkt) {
     return pkt->hdr.shdr * 4;
 }
+net_err_t ipv4_out(uint8_t protocol, ipaddr_t* dest, ipaddr_t* src, packet_t* packet);
 #endif //EASY_NET_IPV4_H

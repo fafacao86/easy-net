@@ -52,4 +52,5 @@
 #define ARP_ENTRY_RETRY_CNT				3               // pending arp entry retry count
 #define ARP_TIMER_TMO               1               // ARP scanner timer timeout value, in seconds
 
+#define NET_IP_DEF_TTL                 64                 // default time-to-live value for IP packets
 #endif

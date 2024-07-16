@@ -33,7 +33,8 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         src/stack/network/arp.c
         test/arp_test.c
         src/stack/network/ipv4.c
-        include/stack/network/ipv4.h)
+        include/stack/network/ipv4.h
+        test/ipv4_test.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

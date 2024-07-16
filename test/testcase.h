@@ -25,4 +25,7 @@ void test_timer();
 
 #include "netif.h"
 void test_arp(netif_t * netif);
+
+#include "ipv4.h"
+void test_ipv4();
 #endif

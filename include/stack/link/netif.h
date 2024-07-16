@@ -97,6 +97,7 @@ net_err_t netif_set_hwaddr(netif_t* netif, const uint8_t* hwaddr, int len);
 net_err_t netif_set_active(netif_t* netif);
 net_err_t netif_set_deactive(netif_t* netif);
 void netif_set_default (netif_t * netif);
+netif_t * netif_get_default (void);
 net_err_t netif_close(netif_t* netif);
 
 net_err_t netif_out(netif_t* netif, ipaddr_t* ipaddr, packet_t* packet);

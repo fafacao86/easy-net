@@ -4,6 +4,8 @@
 #include "utils.h"
 #include "protocols.h"
 
+static uint16_t packet_id = 0;                  // incremental id for ipv4 packet
+
 
 #if LOG_DISP_ENABLED(LOG_IP)
 static void display_ip_packet(ipv4_pkt_t* pkt) {
@@ -37,6 +39,9 @@ net_err_t ipv4_init(void) {
     return NET_OK;
 }
 
+static inline void set_header_size(ipv4_pkt_t* pkt, int size) {
+    pkt->hdr.shdr = size / 4;
+}
 
 static void iphdr_ntohs(ipv4_pkt_t* pkt) {
     pkt->hdr.total_len = e_ntohs(pkt->hdr.total_len);
@@ -44,6 +49,11 @@ static void iphdr_ntohs(ipv4_pkt_t* pkt) {
     pkt->hdr.frag_all = e_ntohs(pkt->hdr.frag_all);
 }
 
+static void iphdr_htons(ipv4_pkt_t* pkt) {
+    pkt->hdr.total_len = e_htons(pkt->hdr.total_len);
+    pkt->hdr.id = e_htons(pkt->hdr.id);
+    pkt->hdr.frag_all = e_ntohs(pkt->hdr.frag_all);
+}
 
 /**
  * validate size and checksum of ipv4 packet
@@ -133,4 +143,39 @@ net_err_t ipv4_in(netif_t* netif, packet_t* buf) {
     }
     err = ip_normal_in(netif, buf, &src_ip, &dest_ip);
     return err;
+}
+
+
+net_err_t ipv4_out(uint8_t protocol, ipaddr_t* dest, ipaddr_t * src, packet_t* packet) {
+    log_info(LOG_IP,"send an ip packet.\n");
+
+    net_err_t err = packet_add_header(packet, sizeof(ipv4_hdr_t), 1);
+    if (err < 0) {
+        log_error(LOG_IP, "no enough space for ip header, curr size: %d\n", packet->total_size);
+        return NET_ERR_SIZE;
+    }
+    ipv4_pkt_t * pkt = (ipv4_pkt_t*)packet_data(packet);
+    pkt->hdr.shdr_all = 0;
+    pkt->hdr.version = NET_VERSION_IPV4;
+    set_header_size(pkt, sizeof(ipv4_hdr_t));
+    pkt->hdr.total_len = packet->total_size;
+    pkt->hdr.id = packet_id++;        // static variable
+    pkt->hdr.frag_all = 0;
+    pkt->hdr.ttl = NET_IP_DEF_TTL;
+    pkt->hdr.protocol = protocol;
+    pkt->hdr.hdr_checksum = 0;
+    ipaddr_to_buf(src, pkt->hdr.src_ip);
+    ipaddr_to_buf(dest, pkt->hdr.dest_ip);
+
+    display_ip_packet(pkt);
+    // convert the fields in header to network byte order
+    iphdr_htons(pkt);
+    packet_reset_pos(packet);
+    pkt->hdr.hdr_checksum = 0; // pktbuf_checksum16(buf, ipv4_hdr_size(pkt), 0, 1);
+    err = netif_out(netif_get_default(), dest, packet);
+    if (err < 0) {
+        log_warning(LOG_IP, "send ip packet failed. error = %d\n", err);
+        return err;
+    }
+    return NET_OK;
 }
