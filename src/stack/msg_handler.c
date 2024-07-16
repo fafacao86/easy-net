@@ -17,6 +17,7 @@
 #include "netif.h"
 #include "sys_plat.h"
 #include "timer.h"
+#include "ipv4.h"
 
 static void * msg_tbl[HANDLER_BUFFER_SIZE];  // For the message queue
 static fixed_queue_t msg_queue;            // message queue
@@ -61,8 +62,13 @@ static net_err_t do_netif_in(exmsg_t* msg) {
                 log_warning(LOG_HANDLER, "netif in failed. err=%d", err);
             }
         } else {
-            //err = ipv4_in(netif, buf);
-            packet_free(packet);
+            // If there is no link layer driver bound to the netif,
+            // we assume that it is sent from the loop back netif.
+            err = ipv4_in(netif, packet);
+            if (err < 0) {
+                packet_free(packet);
+                log_warning(LOG_HANDLER, "netif in failed. err=%d", err);
+            };
         }
     }
 

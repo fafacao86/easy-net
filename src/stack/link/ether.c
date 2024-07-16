@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "protocols.h"
 #include "arp.h"
+#include "ipv4.h"
 
 #if LOG_DISP_ENABLED(LOG_ETHER)
 static void display_ether_display(char * title, ether_frame_t * frame, int size) {
@@ -92,13 +93,27 @@ static net_err_t ether_in(netif_t* netif, packet_t* packet) {
                 log_error(LOG_ETHER, "remove ether header failed, packet size: %d", packet->total_size);
                 return NET_ERR_SIZE;
             }
-
             return arp_in(netif, packet);
+        }
+        case NET_PROTOCOL_IPv4: {
+            //cache_update_by_ippkt(netif, buf);
+            err = packet_remove_header(packet, sizeof(ether_hdr_t));
+            if (err < 0) {
+                log_error(LOG_ETHER, "remove ethernet header failed, packet size: %d", packet->total_size);
+                return NET_ERR_SIZE;
+            }
+            err = ipv4_in(netif, packet);
+            if (err < 0) {
+                log_warning(LOG_ETHER, "process in packet failed. err=%d", err);
+                return err;
+            }
+            break;
         }
         default:
             log_warning(LOG_ETHER, "unknown packet, ignore it.");
             return NET_ERR_NOT_SUPPORT;
     }
+    return NET_OK;
 }
 
 /**
