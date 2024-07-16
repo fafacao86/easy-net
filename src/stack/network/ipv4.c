@@ -17,6 +17,10 @@ static void iphdr_ntohs(ipv4_pkt_t* pkt) {
     pkt->hdr.frag_all = e_ntohs(pkt->hdr.frag_all);
 }
 
+
+/**
+ * validate size and checksum of ipv4 packet
+ * */
 static net_err_t validate_ipv4_pkt(ipv4_pkt_t* pkt, int size) {
     if (pkt->hdr.version != NET_VERSION_IPV4) {
         log_warning(LOG_IP, "invalid ip version, only support ipv4!\n");
@@ -33,7 +37,13 @@ static net_err_t validate_ipv4_pkt(ipv4_pkt_t* pkt, int size) {
         log_warning(LOG_IP, "ip packet size error: %d!\n", total_size);
         return NET_ERR_SIZE;
     }
-
+    if (pkt->hdr.hdr_checksum) {
+        uint16_t c = checksum16((uint16_t*)pkt, hdr_len, 0, 1);
+        if (c != 0) {
+            log_warning(LOG_IP, "Bad checksum: %0x(correct is: %0x)\n", pkt->hdr.hdr_checksum, c);
+            return 0;
+        }
+    }
     return NET_OK;
 }
 
@@ -62,6 +72,7 @@ net_err_t ipv4_in(netif_t* netif, packet_t* buf) {
         log_error(LOG_IP, "ip packet resize failed. err=%d\n", err);
         return err;
     }
+    log_info(LOG_IP, "ip packet in. total_size=%d\n", buf->total_size);
     packet_free(buf);
     return NET_OK;
 }

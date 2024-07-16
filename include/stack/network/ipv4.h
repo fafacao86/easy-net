@@ -18,12 +18,12 @@ typedef struct _ipv4_hdr_t {
     union {
         struct {
 #if NET_ENDIAN_LITTLE
-            uint16_t shdr : 4;           // 首部长，低4字节
-            uint16_t version : 4;        // 版本号
+            uint16_t shdr : 4;           // header length, unit is 4 bytes
+            uint16_t version : 4;
             uint16_t tos : 8;
 #else
-            uint16_t version : 4;        // 版本号
-            uint16_t shdr : 4;           // 首部长，低4字节
+            uint16_t version : 4;
+            uint16_t shdr : 4;
             uint16_t tos : 8;
 #endif
         };

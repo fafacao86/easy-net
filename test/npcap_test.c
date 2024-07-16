@@ -25,10 +25,9 @@ net_err_t init_network_device(void) {
 int main (void) {
     init_stack();
     //test_timer();
-    test_arp(netif);
     init_network_device();
     start_easy_net();
-
+    test_arp(netif);
 //    init_network_device();
     //start_easy_net();
     //test_logging();
