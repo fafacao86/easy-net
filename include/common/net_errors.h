@@ -14,6 +14,8 @@ typedef enum _net_err_t {
     NET_ERR_IO = -9,     // I/O device error
     NET_ERR_EXIST = -10, // Resource already exists
     NET_ERR_NOT_SUPPORT = -11, // Not supported
+    NET_ERR_BROKEN = -12, // Broken packet
+    NET_ERR_UNREACH = -13, // Unreachable address
 }net_err_t;
 
 #endif

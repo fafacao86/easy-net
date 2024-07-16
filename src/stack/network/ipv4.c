@@ -2,6 +2,33 @@
 #include "ipv4.h"
 #include "log.h"
 #include "utils.h"
+#include "protocols.h"
+
+
+#if LOG_DISP_ENABLED(LOG_IP)
+static void display_ip_packet(ipv4_pkt_t* pkt) {
+    ipv4_hdr_t* ip_hdr = (ipv4_hdr_t*)&pkt->hdr;
+
+    plat_printf("--------------- ip ------------------ \n");
+    plat_printf("    Version:%d\n", ip_hdr->version);
+    plat_printf("    Header len:%d bytes\n", ipv4_hdr_size(pkt));
+    plat_printf("    Totoal len: %d bytes\n", ip_hdr->total_len);
+    plat_printf("    Id:%d\n", ip_hdr->id);
+    plat_printf("    TTL: %d\n", ip_hdr->ttl);
+    plat_printf("    Protocol: %d\n", ip_hdr->protocol);
+    plat_printf("    Header checksum: 0x%04x\n", ip_hdr->hdr_checksum);
+    dbg_dump_ip_buf(LOG_IP, "    src ip:", ip_hdr->dest_ip);
+    plat_printf("\n");
+    dbg_dump_ip_buf(LOG_IP, "    dest ip:", ip_hdr->src_ip);
+    plat_printf("\n");
+    plat_printf("--------------- ip end ------------------ \n");
+
+}
+#else
+#define display_ip_packet(pkt)
+#endif
+
+
 
 net_err_t ipv4_init(void) {
     log_info(LOG_IP,"init ip\n");
@@ -41,12 +68,32 @@ static net_err_t validate_ipv4_pkt(ipv4_pkt_t* pkt, int size) {
         uint16_t c = checksum16((uint16_t*)pkt, hdr_len, 0, 1);
         if (c != 0) {
             log_warning(LOG_IP, "Bad checksum: %0x(correct is: %0x)\n", pkt->hdr.hdr_checksum, c);
-            return 0;
+            return NET_ERR_BROKEN;
         }
     }
     return NET_OK;
 }
 
+
+/**
+ * this function handles single normal ip packet, without fragmentation
+ * */
+static net_err_t ip_normal_in(netif_t* netif, packet_t* buf, ipaddr_t* src, ipaddr_t * dest) {
+    ipv4_pkt_t* pkt = (ipv4_pkt_t*)packet_data(buf);
+    display_ip_packet(pkt);
+    switch (pkt->hdr.protocol) {
+        case NET_PROTOCOL_ICMPv4:
+            break;
+        case NET_PROTOCOL_UDP:
+            break;
+        case NET_PROTOCOL_TCP:
+            break;
+        default:
+            log_warning(LOG_IP, "unknown protocol %d, drop it.\n", pkt->hdr.protocol);
+            break;
+    }
+    return NET_ERR_NOT_SUPPORT;
+}
 
 net_err_t ipv4_in(netif_t* netif, packet_t* buf) {
     log_info(LOG_IP, "IP in\n");
@@ -61,6 +108,7 @@ net_err_t ipv4_in(netif_t* netif, packet_t* buf) {
         log_warning(LOG_IP, "packet is broken. drop it.\n");
         return err;
     }
+    // convert the fields in header to host byte order
     iphdr_ntohs(pkt);
 
     // total size has to be greater than header size
@@ -73,6 +121,16 @@ net_err_t ipv4_in(netif_t* netif, packet_t* buf) {
         return err;
     }
     log_info(LOG_IP, "ip packet in. total_size=%d\n", buf->total_size);
-    packet_free(buf);
-    return NET_OK;
+    // here we don't forward the packet, we just handle packets that sent to us
+    ipaddr_t dest_ip, src_ip;
+    ipaddr_from_buf(&dest_ip, pkt->hdr.dest_ip);
+    ipaddr_from_buf(&src_ip, pkt->hdr.src_ip);
+
+    // check if the destination ip is us or broadcast
+    if (!ipaddr_is_match(&dest_ip, &netif->ipaddr, &netif->netmask)) {
+        packet_free(buf);
+        return NET_ERR_UNREACH;
+    }
+    err = ip_normal_in(netif, buf, &src_ip, &dest_ip);
+    return err;
 }
