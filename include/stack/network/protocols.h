@@ -6,5 +6,5 @@ typedef enum _protocol_t {
     NET_PROTOCOL_ICMPv4 = 0x1,         // ICMP
     NET_PROTOCOL_UDP = 0x11,          // UDP
     NET_PROTOCOL_TCP = 0x06,          // TCP
-}protocol_t;
+    }protocol_t;
 #endif //EASY_NET_PROTOCOLS_H

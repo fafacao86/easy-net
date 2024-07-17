@@ -1,6 +1,37 @@
 #include "icmpv4.h"
 #include "log.h"
 #include "ipv4.h"
+#include "utils.h"
+#include "protocols.h"
+
+#if LOG_DISP_ENABLED(LOG_ICMP)
+static void display_icmp_packet(char * title, icmpv4_pkt_t  * pkt) {
+    plat_printf("--------------- %s ------------------ \n", title);
+    plat_printf("type: %d\n", pkt->hdr.type);
+    plat_printf("code: %d\n", pkt->hdr.code);
+    plat_printf("checksum: %x\n", e_ntohs(pkt->hdr.checksum));
+    plat_printf("------------------------------------- \n");
+}
+#else
+#define display_icmp_packet(title, packet)
+#endif //debug_icmp
+
+static net_err_t icmpv4_out(ipaddr_t* dest, ipaddr_t* src, packet_t* packet) {
+    icmpv4_pkt_t* pkt = (icmpv4_pkt_t*)packet_data(packet);
+    packet_seek(packet, 0);
+    pkt->hdr.checksum = packet_checksum16(packet, packet->total_size, 0, 1);
+    display_icmp_packet("icmp reply", pkt);
+    return ipv4_out(NET_PROTOCOL_ICMPv4, dest, src, packet);
+}
+
+
+static net_err_t icmpv4_echo_reply(ipaddr_t *dest, ipaddr_t * src, packet_t *packet) {
+    icmpv4_pkt_t* pkt = (icmpv4_pkt_t*)packet_data(packet);
+    // just modify the type and checksum field, the other remains the same
+    pkt->hdr.type = ICMPv4_ECHO_REPLY;
+    pkt->hdr.checksum = 0;
+    return icmpv4_out(dest, src, packet);
+}
 
 
 static net_err_t validate_icmp(icmpv4_pkt_t * pkt, int size, packet_t * packet) {
@@ -42,6 +73,19 @@ net_err_t icmpv4_in(ipaddr_t *src, ipaddr_t * netif_ip, packet_t *packet) {
     if ((err = validate_icmp(icmp_pkt, packet->total_size, packet)) != NET_OK) {
         log_warning(LOG_ICMP, "icmp pkt error.drop it. err=%d", err);
         return err;
+    }
+    display_icmp_packet("icmp in", icmp_pkt);
+
+    switch (icmp_pkt->hdr.type) {
+        case ICMPv4_ECHO_REQUEST: {
+            dbg_dump_ip(LOG_ICMP, "icmp request, ip:", src);
+            return icmpv4_echo_reply(src, netif_ip, packet);
+        }
+        default: {
+            packet_free(packet);
+            dbg_dump_ip(LOG_ICMP, "unknown type icmp packet, ip:", src);
+            return NET_OK;
+        }
     }
     return NET_OK;
 }
