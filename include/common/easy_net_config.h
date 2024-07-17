@@ -12,9 +12,9 @@
 #define LOG_NETIF               LEVEL_ERROR			// log level for network interface
 #define LOG_ETHER               LEVEL_ERROR			// log level for ethernet
 #define LOG_UTILS               LEVEL_ERROR			// log level for utils
-#define LOG_ARP                 LEVEL_INFO			// log level for arp
+#define LOG_ARP                 LEVEL_ERROR			// log level for arp
 #define LOG_IP                  LEVEL_INFO			// log level for ip
-#define LOG_TIMER                LEVEL_NONE			// log level for timer
+#define LOG_TIMER                LEVEL_ERROR			// log level for timer
 #define LOG_ICMP                LEVEL_INFO			// log level for icmp
 
 

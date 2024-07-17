@@ -53,7 +53,7 @@ static void iphdr_ntohs(ipv4_pkt_t* pkt) {
 static void iphdr_htons(ipv4_pkt_t* pkt) {
     pkt->hdr.total_len = e_htons(pkt->hdr.total_len);
     pkt->hdr.id = e_htons(pkt->hdr.id);
-    pkt->hdr.frag_all = e_ntohs(pkt->hdr.frag_all);
+    pkt->hdr.frag_all = e_htons(pkt->hdr.frag_all);
 }
 
 /**
@@ -88,6 +88,7 @@ static net_err_t validate_ipv4_pkt(ipv4_pkt_t* pkt, int size) {
 
 /**
  * this function handles single normal ip packet, without fragmentation
+ * Be careful: when called by ipv4_in, the endian of the packet header is already converted to host byte order
  * */
 static net_err_t ip_normal_in(netif_t* netif, packet_t* packet, ipaddr_t* src, ipaddr_t * dest) {
     ipv4_pkt_t* pkt = (ipv4_pkt_t*)packet_data(packet);
@@ -101,8 +102,11 @@ static net_err_t ip_normal_in(netif_t* netif, packet_t* packet, ipaddr_t* src, i
             }
             return NET_OK;
         }
-        case NET_PROTOCOL_UDP:
+        case NET_PROTOCOL_UDP: {
+            iphdr_htons(pkt);   // be careful
+            icmpv4_out_unreach(src, &netif->ipaddr, ICMPv4_UNREACH_PORT, packet);
             break;
+        }
         case NET_PROTOCOL_TCP:
             break;
         default:

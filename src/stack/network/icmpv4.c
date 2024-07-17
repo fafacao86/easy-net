@@ -34,6 +34,50 @@ static net_err_t icmpv4_echo_reply(ipaddr_t *dest, ipaddr_t * src, packet_t *pac
 }
 
 
+net_err_t icmpv4_out_unreach(ipaddr_t* dest, ipaddr_t * src, uint8_t code, packet_t * ip_packet) {
+    // the data of the ICMP packet the original ip packet
+    // plus some amount of data of the original ip packet
+    // here we use 576 bytes of data or the whole packet if it's smaller than 576
+    int copy_size = ipv4_hdr_size((ipv4_pkt_t*)packet_data(ip_packet)) + 576;
+    if (copy_size > ip_packet->total_size) {
+        copy_size = ip_packet->total_size;
+    }
+
+    // allocate a packet buffer for the icmp packet
+    packet_t * new_buf = packet_alloc(copy_size + sizeof(icmpv4_hdr_t) + 4);
+    if (new_buf == (packet_t*)0) {
+        log_warning(LOG_ICMP, "alloc buf failed");
+        return NET_ERR_NONE;
+    }
+    net_err_t err  = packet_set_cont(new_buf, sizeof(icmpv4_pkt_t));
+    if (err < 0) {
+        log_error(LOG_ICMP, "set cont faile.");
+        return NET_ERR_SIZE;
+    }
+    icmpv4_pkt_t* pkt = (icmpv4_pkt_t*)packet_data(new_buf);
+    pkt->hdr.type = ICMPv4_UNREACH;
+    pkt->hdr.code = code;
+    pkt->hdr.checksum = 0;
+    pkt->reverse = 0;
+    packet_reset_pos(ip_packet);
+    // skip header and 4 reversed bytes
+    packet_seek(new_buf, sizeof(icmpv4_hdr_t) + 4);
+    err = packet_copy(new_buf, ip_packet, copy_size);
+    if (err < 0) {
+        log_error(LOG_ICMP, "copy ip buf failed. err = %d", err);
+        packet_free(new_buf);
+        return err;
+    }
+    err = icmpv4_out(dest, src, new_buf);
+    if (err < 0) {
+        log_error(LOG_ICMP, "send icmp unreach failed.");
+        packet_free(new_buf);
+        return err;
+    }
+    return NET_OK;
+}
+
+
 static net_err_t validate_icmp(icmpv4_pkt_t * pkt, int size, packet_t * packet) {
     if (size <= sizeof(icmpv4_hdr_t)) {
         log_warning(LOG_ICMP, "size error: %d", size);

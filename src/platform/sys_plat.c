@@ -1,145 +1,14 @@
 ﻿#include "include/platform/sys_plat.h"
 
-#if defined(SYS_PLAT_X86OS)
-#include "dev/time.h"
-#include "os_cfg.h"
-#include "dbg.h"
-#include "sys.h"
-#include "mblock.h"
-#include "cpu/irq.h"
-#include "core/task.h"
-
-#define NET_TASK_NR                 3           // 如果收发均有线程，至少3个。否则1个
-#define NET_SEM_NR                  100         // 信号量数量
-#define NET_MUTEX_NR                100         // 互斥锁数量
-
-typedef struct _net_task_t {
-    task_t task;
-    uint32_t stack[10*1024];
-}net_task_t;
-
-static net_task_t task_tbl[NET_TASK_NR];
-static memory_pool_t task_mblock;
-static sem_t sem_tbl[NET_SEM_NR];
-static memory_pool_t sem_mblock;
-static mutex_t mutex_tbl[NET_MUTEX_NR];
-static memory_pool_t mutex_mblock;
-
-void sys_time_curr (net_time_t * time) {
-    *time = sys_get_ticks();
-}
-
-int sys_time_goes (net_time_t * pre) {
-    // 获取当前时间
-    net_time_t curr = sys_get_ticks();
-
-    // 记录过去了多少毫秒
-   int diff_ms = (curr - *pre) * OS_TICK_MS;
-
-    // 记录下这次调用的时间
-    *pre  = curr;
-    return diff_ms;    
-}
-
-// 计数信号量相关：由具体平台实现
-sys_sem_t sys_sem_create(int init_count) {
-    sys_sem_t sem = (sys_sem_t)mblock_alloc(&sem_mblock, -1);
-    if (sem != SYS_SEM_INVALID) {
-       sem_init(sem, init_count);
-    }
-    return sem;
-}
-
-void sys_sem_free(sys_sem_t sem) {
-    mblock_free(&sem_mblock, sem);
-}
-
-int sys_sem_wait(sys_sem_t sem, uint32_t ms) {
-    return sem_wait_tmo(sem, ms);
-}
-
-void sys_sem_notify(sys_sem_t sem) {
-    sem_notify(sem);
-}
-
-// 互斥信号量：由具体平台实现
-sys_mutex_t sys_mutex_create(void) {
-    sys_mutex_t m = (sys_mutex_t)mblock_alloc(&mutex_mblock, -1);
-    if (m != SYS_MUTEx_INVALID) {
-        mutex_init(m);
-    }
-    return m;
-}
-
-void sys_mutex_free(sys_mutex_t mutex) {
-    mblock_free(&mutex_mblock, mutex);
-}
-
-void sys_mutex_lock(sys_mutex_t mutex) {
-    mutex_lock(mutex);
-}
-
-void sys_mutex_unlock(sys_mutex_t mutex) {
-    mutex_unlock(mutex);
-}
-
-sys_intlocker_t sys_intlocker_lock(void) {
-    return irq_enter_protection();
-}
-
-void sys_intlocker_unlock(sys_intlocker_t locker) {
-    irq_leave_protection(locker);
-}
-
-// 线程相关：由具体平台实现
-sys_thread_t sys_thread_create(sys_thread_func_t entry, void* arg) {
-    net_task_t * task = (net_task_t *)mblock_alloc(&task_mblock, -1);
-
-    // 初始化系统线程
-    int err = task_init(&task->task, "net task", TASK_FLAG_SYSTEM, (uint32_t)entry, (uint32_t)(task->stack + sizeof(task->stack)));
-    if (err < 0) {
-        log_printf("net: create task failed.");
-        return SYS_THREAD_INVALID;
-    }
-
-    // 注意启动任务
-    task_start(&task->task);
-    return &task->task;
-}
-
-void sys_thread_exit (int error) {
-    // 不实现，加入os内核后，应用层不需要使用该接口
-}
-
-sys_thread_t sys_thread_self (void) {
-    return task_current();
-}
-
-void sys_sleep(int ms) {
-    sys_msleep(ms);
-}
-
-void sys_plat_init(void) {
-    mblock_init(&task_mblock, task_tbl, sizeof(net_task_t), NET_TASK_NR, LOCKER_NONE);
-    mblock_init(&sem_mblock, sem_tbl, sizeof(sem_t), NET_SEM_NR, LOCKER_NONE);
-    mblock_init(&mutex_mblock, mutex_tbl, sizeof(mutex_t), NET_MUTEX_NR, LOCKER_NONE);
-}
-	
- // windows
-#elif defined(SYS_PLAT_WINDOWS)
+#if defined(SYS_PLAT_WINDOWS)
 
 #include <winsock.h>
 #include <tchar.h>
 #include <time.h>
 #include "pcap.h"
 
-#pragma comment(lib, "ws2_32.lib")  // 加载win32的网络库
+#pragma comment(lib, "ws2_32.lib")
 
-/**
- * 调整npcap的搜索路径：默认安装在系统的dll路径\npcap目录下
- * 设置该路径，以避免使用其它已经安装的winbcap版本的dll
- * 注意：要先安装npcap软件包
- */
 int load_pcap_lib() {
     static int dll_loaded = 0;
     _TCHAR  npcap_dir[512];
@@ -165,27 +34,14 @@ int load_pcap_lib() {
     return 0;
 }
 
-/**
- * @brief 获取当前时间
- */
 void sys_time_curr (net_time_t * time) {
     // https://learn.microsoft.com/zh-cn/windows/win32/api/sysinfoapi/nf-sysinfoapi-gettickcount?redirectedfrom=MSDN
-    *time = GetTickCount();     // 自系统启动以来已用过的毫秒数
+    *time = GetTickCount();
 }
 
-/**
- * @brief 返回当前时间与传入的time之间时间差值, 调用完成之后，time被更新为当前时间
- * 
- * 第一次调用时，返回的时间差值无效
- */
 int sys_time_goes (net_time_t * pre) {
-    // 获取当前时间
     net_time_t curr = GetTickCount();
-
-    // 记录过去了多少毫秒
    int diff_ms = curr - *pre;
-
-    // 记录下这次调用的时间
     *pre  = curr;
     return diff_ms;
 }
@@ -217,10 +73,6 @@ void sys_sem_notify(sys_sem_t sem) {
     ReleaseSemaphore(sem, 1, NULL);
 }
 
-/**
- * 创建线程互斥锁
- * @return 创建的互斥信号量
- */
 sys_mutex_t sys_mutex_create(void) {
     sys_mutex_t mutex = CreateMutex(NULL, FALSE, NULL); // 初始不被占用
     if (mutex == NULL) {
@@ -229,26 +81,14 @@ sys_mutex_t sys_mutex_create(void) {
     return mutex;
 }
 
-/**
- * 释放互斥信号量
- * @param mutex
- */
 void sys_mutex_free(sys_mutex_t locker) {
     ReleaseMutex(locker);
 }
 
-/**
- * 锁定线程互斥锁
- * @param mutex 待锁定的互斥信号量
- */
 void sys_mutex_lock(sys_mutex_t locker) {
     WaitForSingleObject(locker, INFINITE);
 }
 
-/**
- * 释放线程互斥锁
- * @param mutex 待释放的互斥信号量
- */
 void sys_mutex_unlock(sys_mutex_t locker) {
     ReleaseMutex(locker);
 }
@@ -264,9 +104,6 @@ sys_thread_t sys_thread_create(void (*entry)(void * arg), void* arg) {
         );
 }
 
-/**
- * @brief 结束线程，目前只能结束自己
- */
 void sys_thread_exit (int error) {
     ExitThread((DWORD)error);
 }
@@ -275,9 +112,6 @@ sys_thread_t sys_thread_self (void) {
     return GetCurrentThread();
 }
 
-/**
- * @brief 简单的延时，以毫秒为单位
- */
 void sys_sleep(int ms) {
     Sleep(ms);
 }
@@ -349,20 +183,12 @@ sys_sem_t sys_sem_create(int init_count) {
     return sem;
 }
 
-/**
- * 释放掉信号量
- */
 void sys_sem_free(sys_sem_t sem) {
     pthread_cond_destroy(&(sem->cond));
     pthread_mutex_destroy(&(sem->locker));
     free(sem);
 }
 
-/**
- * 等待信号量
- * @param sem 等待的信号量
- * @param tmo 等待的超时时间
- */
 int sys_sem_wait(sys_sem_t sem, uint32_t tmo_ms) {
     pthread_mutex_lock(&(sem->locker));
 
@@ -392,28 +218,16 @@ int sys_sem_wait(sys_sem_t sem, uint32_t tmo_ms) {
     return 0;
 }
 
-/**
- * 通知信号量
- * @param sem 待通知的信号量
- */
 void sys_sem_notify(sys_sem_t sem) {
     pthread_mutex_lock(&(sem->locker));
 
     sem->count++;
 
-    // 通知线程，有新的资源可用
     pthread_cond_signal(&(sem->cond));
 
     pthread_mutex_unlock(&(sem->locker));
 }
 
-/**
- * 创建一个线程
- * @param entry 线程的入口函数
- * @param arg 传递给线程的参数
- * @param prio 优先级
- * @param stack_size 堆栈大小
- */
 sys_thread_t sys_thread_create(void (*entry)(void * arg), void* arg) {
     pthread_t pthread;
 
@@ -428,24 +242,14 @@ sys_thread_t sys_thread_create(void (*entry)(void * arg), void* arg) {
     return pthread;
 }
 
-/**
- * 销毁线程
- */
 void sys_thread_del_self() {
     pthread_exit(NULL);
 }
 
-/**
- * @brief 简单的延时，以毫秒为单位
- */
 void sys_sleep(int ms) {
     usleep(1000 * ms);
 }
 
-/**
- * 创建线程互斥锁
- * @return 创建的互斥信号量
- */
 sys_mutex_t sys_mutex_create(void) {
     sys_mutex_t mutex = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
 
@@ -456,34 +260,23 @@ sys_mutex_t sys_mutex_create(void) {
     return mutex;
 }
 
-/**
- * 释放互斥信号量
- * @param mutex
- */
 void sys_mutex_free(sys_mutex_t locker) {
     pthread_mutex_destroy(locker);
     free(locker);
 }
 
-/**
- * 锁定线程互斥锁
- * @param mutex 待锁定的互斥信号量
- */
+
 void sys_mutex_lock(sys_mutex_t locker) {
     pthread_mutex_lock(locker);
 }
 
-/**
- * 释放线程互斥锁
- * @param mutex 待释放的互斥信号量
- */
 void sys_mutex_unlock(sys_mutex_t locker) {
     pthread_mutex_unlock(locker);
 }
 
 
 void sys_thread_exit (int error) {
-    // 不实现，加入os内核后，应用层不需要使用该接口
+    //
 }
 
 sys_thread_t sys_thread_self (void) {
@@ -498,15 +291,12 @@ void sys_plat_init(void) {
 #if defined(NET_DRIVER_PCAP)
 #include <pcap.h>
 
-/**
- * 根据ip地址查找本地网络接口列表，找到相应的名称
- */
+
 int pcap_find_device(const char* ip, char* name_buf) {
     struct in_addr dest_ip;
 
     inet_pton(AF_INET, ip, &dest_ip);
 
-    // 获取所有的接口列表
     char err_buf[PCAP_ERRBUF_SIZE];
     pcap_if_t* pcap_if_list = NULL;
     int err = pcap_findalldevs(&pcap_if_list, err_buf);
@@ -514,23 +304,16 @@ int pcap_find_device(const char* ip, char* name_buf) {
         pcap_freealldevs(pcap_if_list);
         return -1;
     }
-
-    // 遍历列表
     pcap_if_t* item;
     for (item = pcap_if_list; item != NULL; item = item->next) {
         if (item->addresses == NULL) {
             continue;
         }
-
-        // 查找地址
         for (struct pcap_addr* pcap_addr = item->addresses; pcap_addr != NULL; pcap_addr = pcap_addr->next) {
-            // 检查ipv4地址类型
             struct sockaddr* sock_addr = pcap_addr->addr;
             if (sock_addr->sa_family != AF_INET) {
                 continue;
             }
-
-            // 地址相同则返回
             struct sockaddr_in* curr_addr = ((struct sockaddr_in*)sock_addr);
             if (curr_addr->sin_addr.s_addr == dest_ip.s_addr) {
                 strcpy(name_buf, item->name);
@@ -544,15 +327,11 @@ int pcap_find_device(const char* ip, char* name_buf) {
     return -1;
 }
 
-/*
- * 显示所有的网络接口列表，在出错时被调用
- */
 int pcap_show_list(void) {
     char err_buf[PCAP_ERRBUF_SIZE];
     pcap_if_t* pcapif_list = NULL;
     int count = 0;
 
-    // 查找所有的网络接口
     int err = pcap_findalldevs(&pcapif_list, err_buf);
     if (err < 0) {
         fprintf(stderr, "scan net card failed: %s\n", err_buf);
@@ -562,13 +341,11 @@ int pcap_show_list(void) {
 
     printf("net card list: \n");
 
-    // 遍历所有的可用接口，输出其信息
     for (pcap_if_t* item = pcapif_list; item != NULL; item = item->next) {
         if (item->addresses == NULL) {
             continue;
         }
 
-        // 显示ipv4地址
         for (struct pcap_addr* pcap_addr = item->addresses; pcap_addr != NULL; pcap_addr = pcap_addr->next) {
             char str[INET_ADDRSTRLEN];
             struct sockaddr_in* ip_addr;
@@ -603,17 +380,13 @@ int pcap_show_list(void) {
     return 0;
 }
 
-/**
- * 打开pcap设备接口
- */
+
 pcap_t * pcap_device_open(const char* ip, const uint8_t* mac_addr) {
-    // 加载pcap库
     if (load_pcap_lib() < 0) {
-        fprintf(stderr, "load pcap lib error。在windows上，请课程提供的安装npcap.dll\n");
+        fprintf(stderr, "load pcap lib error\n");
         return (pcap_t *)0;
     }
 
-    // 利用上层传来的ip地址，
     char name_buf[256];
     if (pcap_find_device(ip, name_buf) < 0) {
         fprintf(stderr, "pcap find error: no net card has ip: %s. \n", ip);
@@ -621,7 +394,6 @@ pcap_t * pcap_device_open(const char* ip, const uint8_t* mac_addr) {
         return (pcap_t*)0;
     }
 
-    // 根据名称获取ip地址、掩码等
     char err_buf[PCAP_ERRBUF_SIZE];
     bpf_u_int32 mask;
     bpf_u_int32 net;
@@ -631,7 +403,6 @@ pcap_t * pcap_device_open(const char* ip, const uint8_t* mac_addr) {
         mask = 0;
     }
 
-    // 打开设备
     pcap_t * pcap = pcap_create(name_buf, err_buf);
     if (pcap == NULL) {
         fprintf(stderr, "pcap_create: create pcap failed %s\n net card name: %s\n", err_buf, name_buf);
@@ -655,7 +426,6 @@ pcap_t * pcap_device_open(const char* ip, const uint8_t* mac_addr) {
         return (pcap_t*)0;
     }
 
-    // 非阻塞模式读取，程序中使用查询的方式读
     if (pcap_set_immediate_mode(pcap, 1) != 0) {
         fprintf(stderr, "pcap_open: set im block failed: %s\n", pcap_geterr(pcap));
         return (pcap_t*)0;
@@ -671,7 +441,6 @@ pcap_t * pcap_device_open(const char* ip, const uint8_t* mac_addr) {
         return (pcap_t*)0;
     }
 
-    // 只捕获发往本接口与广播的数据帧。相当于只处理发往这张网卡的包
     char filter_exp[256];
     struct bpf_program fp;
     sprintf(filter_exp,
