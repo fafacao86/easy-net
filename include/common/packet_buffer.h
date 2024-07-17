@@ -81,4 +81,6 @@ int packet_write(packet_t * packet, uint8_t* src, int size);
 int packet_read(packet_t* packet, uint8_t* dest, int size);
 net_err_t packet_copy(packet_t * dest, packet_t* src, int size);
 net_err_t packet_fill(packet_t* packet, uint8_t val, int size);
+
+uint16_t packet_checksum16(packet_t* buf, int size, uint32_t pre_sum, int complement);
 #endif //EASY_NET_PACKET_BUFFER_H

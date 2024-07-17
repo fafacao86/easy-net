@@ -3,6 +3,7 @@
 #include "log.h"
 #include "utils.h"
 #include "protocols.h"
+#include "icmpv4.h"
 
 static uint16_t packet_id = 0;                  // incremental id for ipv4 packet
 
@@ -88,12 +89,18 @@ static net_err_t validate_ipv4_pkt(ipv4_pkt_t* pkt, int size) {
 /**
  * this function handles single normal ip packet, without fragmentation
  * */
-static net_err_t ip_normal_in(netif_t* netif, packet_t* buf, ipaddr_t* src, ipaddr_t * dest) {
-    ipv4_pkt_t* pkt = (ipv4_pkt_t*)packet_data(buf);
+static net_err_t ip_normal_in(netif_t* netif, packet_t* packet, ipaddr_t* src, ipaddr_t * dest) {
+    ipv4_pkt_t* pkt = (ipv4_pkt_t*)packet_data(packet);
     display_ip_packet(pkt);
     switch (pkt->hdr.protocol) {
-        case NET_PROTOCOL_ICMPv4:
-            break;
+        case NET_PROTOCOL_ICMPv4: {
+            net_err_t err = icmpv4_in(src, &netif->ipaddr, packet);
+            if (err < 0) {
+                log_warning(LOG_IP, "icmp in failed.\n");
+                return err;
+            }
+            return NET_OK;
+        }
         case NET_PROTOCOL_UDP:
             break;
         case NET_PROTOCOL_TCP:
@@ -138,7 +145,6 @@ net_err_t ipv4_in(netif_t* netif, packet_t* buf) {
 
     // check if the destination ip is us or broadcast
     if (!ipaddr_is_match(&dest_ip, &netif->ipaddr, &netif->netmask)) {
-        packet_free(buf);
         return NET_ERR_UNREACH;
     }
     err = ip_normal_in(netif, buf, &src_ip, &dest_ip);
@@ -154,24 +160,24 @@ net_err_t ipv4_out(uint8_t protocol, ipaddr_t* dest, ipaddr_t * src, packet_t* p
         log_error(LOG_IP, "no enough space for ip header, curr size: %d\n", packet->total_size);
         return NET_ERR_SIZE;
     }
-    ipv4_pkt_t * pkt = (ipv4_pkt_t*)packet_data(packet);
-    pkt->hdr.shdr_all = 0;
-    pkt->hdr.version = NET_VERSION_IPV4;
-    set_header_size(pkt, sizeof(ipv4_hdr_t));
-    pkt->hdr.total_len = packet->total_size;
-    pkt->hdr.id = packet_id++;        // static variable
-    pkt->hdr.frag_all = 0;
-    pkt->hdr.ttl = NET_IP_DEF_TTL;
-    pkt->hdr.protocol = protocol;
-    pkt->hdr.hdr_checksum = 0;
-    ipaddr_to_buf(src, pkt->hdr.src_ip);
-    ipaddr_to_buf(dest, pkt->hdr.dest_ip);
+    ipv4_pkt_t * ip_datagram = (ipv4_pkt_t*)packet_data(packet);
+    ip_datagram->hdr.shdr_all = 0;
+    ip_datagram->hdr.version = NET_VERSION_IPV4;
+    set_header_size(ip_datagram, sizeof(ipv4_hdr_t));
+    ip_datagram->hdr.total_len = packet->total_size;
+    ip_datagram->hdr.id = packet_id++;        // static variable
+    ip_datagram->hdr.frag_all = 0;
+    ip_datagram->hdr.ttl = NET_IP_DEF_TTL;
+    ip_datagram->hdr.protocol = protocol;
+    ip_datagram->hdr.hdr_checksum = 0;
+    ipaddr_to_buf(src, ip_datagram->hdr.src_ip);
+    ipaddr_to_buf(dest, ip_datagram->hdr.dest_ip);
 
-    display_ip_packet(pkt);
+    display_ip_packet(ip_datagram);
     // convert the fields in header to network byte order
-    iphdr_htons(pkt);
+    iphdr_htons(ip_datagram);
     packet_reset_pos(packet);
-    pkt->hdr.hdr_checksum = 0; // pktbuf_checksum16(buf, ipv4_hdr_size(pkt), 0, 1);
+    ip_datagram->hdr.hdr_checksum = packet_checksum16(packet, ipv4_hdr_size(ip_datagram), 0, 1);
     err = netif_out(netif_get_default(), dest, packet);
     if (err < 0) {
         log_warning(LOG_IP, "send ip packet failed. error = %d\n", err);

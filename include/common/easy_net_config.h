@@ -15,6 +15,8 @@
 #define LOG_ARP                 LEVEL_INFO			// log level for arp
 #define LOG_IP                  LEVEL_INFO			// log level for ip
 #define LOG_TIMER                LEVEL_NONE			// log level for timer
+#define LOG_ICMP                LEVEL_INFO			// log level for icmp
+
 
 /**
  * Properties of the network stack.

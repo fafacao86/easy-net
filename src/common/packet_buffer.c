@@ -5,6 +5,7 @@
 #include "log.h"
 #include "net_errors.h"
 #include "easy_net_config.h"
+#include "utils.h"
 
 static locker_t locker;                    // for allocation and de-allocation
 static memory_pool_t page_pool;            // for page allocation
@@ -529,7 +530,7 @@ net_err_t packet_seek(packet_t* packet, int offset){
 /**
  * Bytes remain starting from the current position.
  * */
-static inline int total_blk_remain(packet_t* packet) {
+static inline int total_packet_remain(packet_t* packet) {
     return packet->total_size - packet->pos;
 }
 
@@ -542,7 +543,7 @@ int packet_write(packet_t * packet, uint8_t* src, int size){
         return NET_ERR_PARAM;
     }
 
-    int remain_size = total_blk_remain(packet);
+    int remain_size = total_packet_remain(packet);
     if (remain_size < size) {
         log_error(LOG_PACKET_BUFFER, "size errorL %d < %d", remain_size, size);
         return NET_ERR_SIZE;
@@ -570,7 +571,7 @@ int packet_read(packet_t* packet, uint8_t* dest, int size){
         return NET_OK;
     }
 
-    int remain_size = total_blk_remain(packet);
+    int remain_size = total_packet_remain(packet);
     if (remain_size < size) {
         log_error(LOG_PACKET_BUFFER, "size errorL %d < %d", remain_size, size);
         return NET_ERR_SIZE;
@@ -592,7 +593,7 @@ int packet_read(packet_t* packet, uint8_t* dest, int size){
 net_err_t packet_copy(packet_t * dest, packet_t* src, int size){
     assert_halt(src->ref != 0, "buf freed")
 
-    if ((total_blk_remain(dest) < size) || (total_blk_remain(src) < size)) {
+    if ((total_packet_remain(dest) < size) || (total_packet_remain(src) < size)) {
         return NET_ERR_SIZE;
     }
     while (size) {
@@ -619,7 +620,7 @@ net_err_t packet_fill(packet_t* packet, uint8_t val, int size){
     if (!size) {
         return NET_ERR_PARAM;
     }
-    int remain_size = total_blk_remain(packet);
+    int remain_size = total_packet_remain(packet);
     if (remain_size < size) {
         log_error(LOG_PACKET_BUFFER, "size errorL %d < %d", remain_size, size);
         return NET_ERR_SIZE;
@@ -635,3 +636,25 @@ net_err_t packet_fill(packet_t* packet, uint8_t val, int size){
     return NET_OK;
 }
 
+uint16_t packet_checksum16(packet_t* buf, int size, uint32_t pre_sum, int complement) {
+    assert_halt(buf->ref != 0, "buf freed")
+
+    int remain_size = total_packet_remain(buf);
+    if (remain_size < size) {
+        log_warning(LOG_PACKET_BUFFER, "size too big. sum size %d < remain size: %d", size, remain_size);
+        return 0;
+    }
+    uint32_t sum = pre_sum;
+    while (size > 0) {
+        int page_size = curr_page_remain(buf);
+
+        int curr_size = (page_size > size ? size : page_size);
+        sum = checksum16(buf->page_offset, curr_size, sum, 0);
+
+        assert_halt(buf->page_offset + curr_size <= buf->cur_page->data + PACKET_PAGE_SIZE, "out bound");
+
+        move_forward(buf, curr_size);
+        size -= curr_size;
+    }
+    return complement ? (uint16_t)~sum : (uint16_t)sum;
+}
