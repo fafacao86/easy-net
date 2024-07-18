@@ -56,5 +56,6 @@
 #define NET_IP_DEF_TTL                 64                 // default time-to-live value for IP packets
 #define IP_FRAGS_MAX_NR               16                 // maximum number of big ip packet can be fragmented
 #define IP_FRAG_MAX_BUF_NR            16                 // maximum number of fragments in a big ip packet
-
+#define IP_FRAG_SCAN_PERIOD           1               // period of ip fragment scanner, in seconds
+#define IP_FRAG_TMO                 5               // ip fragment timeout, in seconds
 #endif

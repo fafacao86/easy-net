@@ -5,6 +5,7 @@
 #include "protocols.h"
 #include "icmpv4.h"
 #include "memory_pool.h"
+#include "timer.h"
 
 static uint16_t packet_id = 0;                  // incremental id for ipv4 packet
 
@@ -12,7 +13,7 @@ static uint16_t packet_id = 0;                  // incremental id for ipv4 packe
 static ip_frag_t frag_array[IP_FRAGS_MAX_NR];
 static memory_pool_t frag_mblock;                    // memory pool for ip_frag_t
 static list_t frag_list;                        // fragmented packets list
-
+static net_timer_t frag_timer;
 
 static inline uint16_t get_frag_start(ipv4_pkt_t* pkt) {
     return pkt->hdr.offset * 8;
@@ -81,70 +82,6 @@ static void display_ip_packet(ipv4_pkt_t* pkt) {
 #define display_ip_frags()
 #endif
 
-static net_err_t frag_init(void) {
-    init_list(&frag_list);
-    memory_pool_init(&frag_mblock, frag_array, sizeof(ip_frag_t), IP_FRAGS_MAX_NR, LOCKER_NONE);
-
-    return NET_OK;
-}
-
-net_err_t ipv4_init(void) {
-    log_info(LOG_IP,"init ip\n");
-    net_err_t err = frag_init();
-    if (err < 0) {
-        log_error(LOG_IP,"failed. err = %d", err);
-        return err;
-    }
-    log_info(LOG_IP,"done.");
-    return NET_OK;
-}
-
-static inline void set_header_size(ipv4_pkt_t* pkt, int size) {
-    pkt->hdr.shdr = size / 4;
-}
-
-static void iphdr_ntohs(ipv4_pkt_t* pkt) {
-    pkt->hdr.total_len = e_ntohs(pkt->hdr.total_len);
-    pkt->hdr.id = e_ntohs(pkt->hdr.id);
-    pkt->hdr.frag_all = e_ntohs(pkt->hdr.frag_all);
-}
-
-static void iphdr_htons(ipv4_pkt_t* pkt) {
-    pkt->hdr.total_len = e_htons(pkt->hdr.total_len);
-    pkt->hdr.id = e_htons(pkt->hdr.id);
-    pkt->hdr.frag_all = e_htons(pkt->hdr.frag_all);
-}
-
-/**
- * validate size and checksum of ipv4 packet
- * */
-static net_err_t validate_ipv4_pkt(ipv4_pkt_t* pkt, int size) {
-    if (pkt->hdr.version != NET_VERSION_IPV4) {
-        log_warning(LOG_IP, "invalid ip version, only support ipv4!\n");
-        return NET_ERR_NOT_SUPPORT;
-    }
-
-    int hdr_len = ipv4_hdr_size(pkt);
-    if (hdr_len < sizeof(ipv4_hdr_t)) {
-        log_warning(LOG_IP, "IPv4 header error: %d!", hdr_len);
-        return NET_ERR_SIZE;
-    }
-    int total_size = e_ntohs(pkt->hdr.total_len);
-    if ((total_size < sizeof(ipv4_hdr_t)) || (size < total_size)) {
-        log_warning(LOG_IP, "ip packet size error: %d!\n", total_size);
-        return NET_ERR_SIZE;
-    }
-    if (pkt->hdr.hdr_checksum) {
-        uint16_t c = checksum16((uint16_t*)pkt, hdr_len, 0, 1);
-        if (c != 0) {
-            log_warning(LOG_IP, "Bad checksum: %0x(correct is: %0x)\n", pkt->hdr.hdr_checksum, c);
-            return NET_ERR_BROKEN;
-        }
-    }
-    return NET_OK;
-}
-
-
 /**
  * free buffer list in a fragment packet
  */
@@ -155,6 +92,17 @@ static void frag_free_buf_list (ip_frag_t * frag) {
         packet_free(buf);
     }
 }
+
+
+/**
+ * free a fragment packet
+ */
+static void frag_free (ip_frag_t * frag) {
+    frag_free_buf_list(frag);
+    list_remove(&frag_list, &frag->node);
+    memory_pool_free(&frag_mblock, frag);
+}
+
 
 /**
  * allocate a fragment packet, when there is no free one, reuse the oldest one
@@ -169,15 +117,6 @@ static ip_frag_t * frag_alloc(void) {
         }
     }
     return frag;
-}
-
-/**
- * free a fragment packet
- */
-static void frag_free (ip_frag_t * frag) {
-    frag_free_buf_list(frag);
-    list_remove(&frag_list, &frag->node);
-    memory_pool_free(&frag_mblock, frag);
 }
 
 static ip_frag_t* frag_find(ipaddr_t* ip, uint16_t id) {
@@ -286,7 +225,7 @@ static packet_t * frag_join (ip_frag_t * frag) {
     }
     frag_free(frag);
     return target;
-free_and_return:
+    free_and_return:
     // free the target and fragmented packet
     // be careful when there is no fragments, the target might be null
     if (target) {
@@ -297,13 +236,96 @@ free_and_return:
 }
 
 
+// timer for fragmentation timeout
+static void frag_tmo(net_timer_t* timer, void * arg) {
+    list_node_t* curr, * next;
+    log_info(LOG_IP, "scan frag");
+    for (curr = list_first(&frag_list); curr; curr = next) {
+        next = list_node_next(curr);
+        ip_frag_t * frag = list_entry(curr, ip_frag_t, node);
+        if (--frag->tmo <= 0) {
+            frag_free(frag);
+        }
+    }
+    //display_ip_frags();
+}
+
+
+static net_err_t frag_init(void) {
+    init_list(&frag_list);
+    memory_pool_init(&frag_mblock, frag_array, sizeof(ip_frag_t), IP_FRAGS_MAX_NR, LOCKER_NONE);
+    net_err_t err = net_timer_add(&frag_timer, "frag timer", frag_tmo, (void *)0,
+                                  IP_FRAG_SCAN_PERIOD * 1000, NET_TIMER_RELOAD);
+    if (err < 0) {
+        log_error(LOG_IP, "create frag timer failed.\n");
+        return err;
+    }
+    return NET_OK;
+}
+
+net_err_t ipv4_init(void) {
+    log_info(LOG_IP,"init ip\n");
+    net_err_t err = frag_init();
+    if (err < 0) {
+        log_error(LOG_IP,"failed. err = %d", err);
+        return err;
+    }
+    log_info(LOG_IP,"done.");
+    return NET_OK;
+}
+
+static inline void set_header_size(ipv4_pkt_t* pkt, int size) {
+    pkt->hdr.shdr = size / 4;
+}
+
+static void iphdr_ntohs(ipv4_pkt_t* pkt) {
+    pkt->hdr.total_len = e_ntohs(pkt->hdr.total_len);
+    pkt->hdr.id = e_ntohs(pkt->hdr.id);
+    pkt->hdr.frag_all = e_ntohs(pkt->hdr.frag_all);
+}
+
+static void iphdr_htons(ipv4_pkt_t* pkt) {
+    pkt->hdr.total_len = e_htons(pkt->hdr.total_len);
+    pkt->hdr.id = e_htons(pkt->hdr.id);
+    pkt->hdr.frag_all = e_htons(pkt->hdr.frag_all);
+}
+
+/**
+ * validate size and checksum of ipv4 packet
+ * */
+static net_err_t validate_ipv4_pkt(ipv4_pkt_t* pkt, int size) {
+    if (pkt->hdr.version != NET_VERSION_IPV4) {
+        log_warning(LOG_IP, "invalid ip version, only support ipv4!\n");
+        return NET_ERR_NOT_SUPPORT;
+    }
+
+    int hdr_len = ipv4_hdr_size(pkt);
+    if (hdr_len < sizeof(ipv4_hdr_t)) {
+        log_warning(LOG_IP, "IPv4 header error: %d!", hdr_len);
+        return NET_ERR_SIZE;
+    }
+    int total_size = e_ntohs(pkt->hdr.total_len);
+    if ((total_size < sizeof(ipv4_hdr_t)) || (size < total_size)) {
+        log_warning(LOG_IP, "ip packet size error: %d!\n", total_size);
+        return NET_ERR_SIZE;
+    }
+    if (pkt->hdr.hdr_checksum) {
+        uint16_t c = checksum16((uint16_t*)pkt, hdr_len, 0, 1);
+        if (c != 0) {
+            log_warning(LOG_IP, "Bad checksum: %0x(correct is: %0x)\n", pkt->hdr.hdr_checksum, c);
+            return NET_ERR_BROKEN;
+        }
+    }
+    return NET_OK;
+}
+
+
 /**
  * this function handles single normal ip packet, without fragmentation
  * Be careful: when called by ipv4_in, the endian of the packet header is already converted to host byte order
  * */
 static net_err_t ip_normal_in(netif_t* netif, packet_t* packet, ipaddr_t* src, ipaddr_t * dest) {
     ipv4_pkt_t* pkt = (ipv4_pkt_t*)packet_data(packet);
-    display_ip_packet(pkt);
     switch (pkt->hdr.protocol) {
         case NET_PROTOCOL_ICMPv4: {
             net_err_t err = icmpv4_in(src, &netif->ipaddr, packet);
@@ -336,28 +358,32 @@ static net_err_t ip_frag_in (netif_t * netif, packet_t * buf, ipaddr_t* src, ipa
         frag = frag_alloc();
         frag_add(frag, src, curr->hdr.id);
     }
-    net_err_t err = frag_insert(frag, buf, curr);
-    if (err < 0) {
-        log_warning(LOG_IP, "frag insert failed.");
-        return err;
-    }
-    if (frag_is_all_arrived(frag)) {
-        packet_t * full_buf = frag_join(frag);
+    static int cnt = 0;
+    if(cnt % 2 == 0){
+        net_err_t err = frag_insert(frag, buf, curr);
+        if (err < 0) {
+            log_warning(LOG_IP, "frag insert failed.");
+            return err;
+        }
+        if (frag_is_all_arrived(frag)) {
+            packet_t * full_buf = frag_join(frag);
 //        log_info(LOG_IP, "join all ip frags success.\n");
 //        display_ip_frags();
-        if (!full_buf) {
-            log_error(LOG_IP,"join all ip frags failed.\n");
-            display_ip_frags();
-            return NET_OK;
-        }
-        err = ip_normal_in(netif, full_buf, src, dest);
-        if (err < 0) {
-            log_warning(LOG_IP,"ip frag in error. err=%d\n", err);
-            // the full_buf has to be freed in this function
-            packet_free(full_buf);
-            return NET_OK;
+            if (!full_buf) {
+                log_error(LOG_IP,"join all ip frags failed.\n");
+                display_ip_frags();
+                return NET_OK;
+            }
+            err = ip_normal_in(netif, full_buf, src, dest);
+            if (err < 0) {
+                log_warning(LOG_IP,"ip frag in error. err=%d\n", err);
+                // the full_buf has to be freed in this function
+                packet_free(full_buf);
+                return NET_OK;
+            }
         }
     }
+    cnt++;
     display_ip_frags();
     return NET_OK;
 }
@@ -446,7 +472,7 @@ static net_err_t ip_frag_out(uint8_t protocol, ipaddr_t* dest,
         pkt->hdr.offset = offset >> 3;      // the unit is 8 bytes
         pkt->hdr.more = total > curr_size;
 
-        // 3. 拷贝数据区, 注意curr_size是包含头部的大小
+        // copy data from buf to dest_buf
         packet_seek(dest_buf, sizeof(ipv4_hdr_t));
         net_err_t err = packet_copy(dest_buf, buf, curr_size);
         if (err < 0) {
@@ -477,7 +503,15 @@ static net_err_t ip_frag_out(uint8_t protocol, ipaddr_t* dest,
 
 net_err_t ipv4_out(uint8_t protocol, ipaddr_t* dest, ipaddr_t * src, packet_t* packet) {
     log_info(LOG_IP,"send an ip packet.\n");
-
+    netif_t * netif = netif_get_default();
+    if (netif->mtu && ((packet->total_size + sizeof(ipv4_hdr_t)) > netif->mtu)) {
+        net_err_t err = ip_frag_out(protocol, dest, src, packet, netif);
+        if (err < 0) {
+            log_warning(LOG_IP, "send ip frag packet failed. error = %d\n", err);
+            return err;
+        }
+        return NET_OK;
+    }
     net_err_t err = packet_add_header(packet, sizeof(ipv4_hdr_t), 1);
     if (err < 0) {
         log_error(LOG_IP, "no enough space for ip header, curr size: %d\n", packet->total_size);
