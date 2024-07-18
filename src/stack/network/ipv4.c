@@ -407,6 +407,74 @@ net_err_t ipv4_in(netif_t* netif, packet_t* buf) {
 }
 
 
+static net_err_t ip_frag_out(uint8_t protocol, ipaddr_t* dest,
+                             ipaddr_t* src, packet_t* buf, netif_t * netif) {
+    log_info(LOG_IP,"frag send an ip packet.\n");
+    packet_reset_pos(buf);
+    int offset = 0;
+    int total = buf->total_size;        // this does not include the header
+    while (total) {
+        int curr_size = total;
+        if (curr_size > netif->mtu - sizeof(ipv4_hdr_t)) {
+            curr_size = netif->mtu - sizeof(ipv4_hdr_t);
+        }
+
+        // make the fragment offset 8 bytes aligned
+        // this is because there are only 13 bits for offset field in header,
+        // and the unit for this field is 8 bytes
+        if (curr_size < total) {
+            curr_size &= ~0x7;
+        }
+
+        packet_t * dest_buf = packet_alloc(curr_size + sizeof(ipv4_hdr_t));
+        if (!dest_buf) {
+            log_error(LOG_IP,"alloc buf for frag send failed.\n");
+            return NET_ERR_MEM;
+        }
+        ipv4_pkt_t * pkt = (ipv4_pkt_t *)packet_data(dest_buf);
+        pkt->hdr.shdr_all = 0;
+        pkt->hdr.version = NET_VERSION_IPV4;
+        set_header_size(pkt, sizeof(ipv4_hdr_t));
+        pkt->hdr.total_len = dest_buf->total_size;
+        pkt->hdr.id = packet_id;
+        pkt->hdr.frag_all = 0;
+        pkt->hdr.ttl = NET_IP_DEF_TTL;
+        pkt->hdr.protocol = protocol;
+        pkt->hdr.hdr_checksum = 0;
+        ipaddr_to_buf(src, pkt->hdr.src_ip);
+        ipaddr_to_buf(dest, pkt->hdr.dest_ip);
+        pkt->hdr.offset = offset >> 3;      // the unit is 8 bytes
+        pkt->hdr.more = total > curr_size;
+
+        // 3. 拷贝数据区, 注意curr_size是包含头部的大小
+        packet_seek(dest_buf, sizeof(ipv4_hdr_t));
+        net_err_t err = packet_copy(dest_buf, buf, curr_size);
+        if (err < 0) {
+            log_error(LOG_IP,"frag copy failed. error = %d.\n", err);
+            packet_free(dest_buf);
+            return err;
+        }
+        packet_remove_header(buf, curr_size);
+        packet_reset_pos(buf);
+        iphdr_htons(pkt);
+        // before calculate the checksum, reset the pos
+        packet_seek(dest_buf, 0);
+        pkt->hdr.hdr_checksum = packet_checksum16(dest_buf, ipv4_hdr_size(pkt), 0, 1);
+        display_ip_packet((ipv4_pkt_t*)pkt);
+        err = netif_out(netif, dest, dest_buf);
+        if (err < 0) {
+            log_warning(LOG_IP,"ip send error. err = %d\n", err);
+            packet_free(dest_buf);
+            return err;
+        }
+        total -= curr_size;
+        offset += curr_size;
+    }
+    packet_id++;
+    packet_free(buf);
+    return NET_OK;
+}
+
 net_err_t ipv4_out(uint8_t protocol, ipaddr_t* dest, ipaddr_t * src, packet_t* packet) {
     log_info(LOG_IP,"send an ip packet.\n");
 
