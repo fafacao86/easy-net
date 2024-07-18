@@ -4,11 +4,58 @@
 #include "utils.h"
 #include "protocols.h"
 #include "icmpv4.h"
+#include "memory_pool.h"
 
 static uint16_t packet_id = 0;                  // incremental id for ipv4 packet
 
+// for fragmentation
+static ip_frag_t frag_array[IP_FRAGS_MAX_NR];
+static memory_pool_t frag_mblock;                    // memory pool for ip_frag_t
+static list_t frag_list;                        // fragmented packets list
+
+
+static inline uint16_t get_frag_start(ipv4_pkt_t* pkt) {
+    return pkt->hdr.offset * 8;
+}
+
+static inline int get_data_size(ipv4_pkt_t* pkt) {
+    return pkt->hdr.total_len - ipv4_hdr_size(pkt);
+}
+
+/**
+ * each fragmented packet is wrapped in a ip header, so we need to calculate the actual data size
+ * */
+static inline uint16_t get_frag_end(ipv4_pkt_t* pkt) {
+    return get_frag_start(pkt) + get_data_size(pkt);
+}
+
 
 #if LOG_DISP_ENABLED(LOG_IP)
+static void display_ip_frags(void) {
+    list_node_t *f_node, * p_node;
+    int f_index = 0, p_index = 0;
+
+    plat_printf("DBG_IP frags:");
+    for (f_node = list_first(&frag_list); f_node; f_node = list_node_next(f_node)) {
+        ip_frag_t* frag = list_entry(f_node, ip_frag_t, node);
+        plat_printf("[%d]:\n", f_index++);
+        dump_ip_buf("\tip:", frag->ip.a_addr);
+        plat_printf("\tid: %d\n", frag->id);
+        plat_printf("\ttmo: %d\n", frag->tmo);
+        plat_printf("\tbufs: %d\n", list_count(&frag->buf_list));
+        plat_printf("\tbufs:\n");
+        list_for_each(p_node, &frag->buf_list) {
+            packet_t * buf = list_entry(p_node, packet_t, node);
+            ipv4_pkt_t* pkt = (ipv4_pkt_t *)packet_data(buf);
+
+            plat_printf("\t\tB%d[%d - %d], ", p_index++, get_frag_start(pkt), get_frag_end(pkt) - 1);
+        }
+        plat_printf("\n");
+    }
+    plat_printf("");
+}
+
+
 static void display_ip_packet(ipv4_pkt_t* pkt) {
     ipv4_hdr_t* ip_hdr = (ipv4_hdr_t*)&pkt->hdr;
 
@@ -17,6 +64,8 @@ static void display_ip_packet(ipv4_pkt_t* pkt) {
     plat_printf("    Header len:%d bytes\n", ipv4_hdr_size(pkt));
     plat_printf("    Totoal len: %d bytes\n", ip_hdr->total_len);
     plat_printf("    Id:%d\n", ip_hdr->id);
+    plat_printf("    Frag offset: 0x%04x\n", ip_hdr->offset);
+    plat_printf("    More frag: %d\n", ip_hdr->more);
     plat_printf("    TTL: %d\n", ip_hdr->ttl);
     plat_printf("    Protocol: %d\n", ip_hdr->protocol);
     plat_printf("    Header checksum: 0x%04x\n", ip_hdr->hdr_checksum);
@@ -29,13 +78,23 @@ static void display_ip_packet(ipv4_pkt_t* pkt) {
 }
 #else
 #define display_ip_packet(pkt)
+#define display_ip_frags()
 #endif
 
+static net_err_t frag_init(void) {
+    init_list(&frag_list);
+    memory_pool_init(&frag_mblock, frag_array, sizeof(ip_frag_t), IP_FRAGS_MAX_NR, LOCKER_NONE);
 
+    return NET_OK;
+}
 
 net_err_t ipv4_init(void) {
     log_info(LOG_IP,"init ip\n");
-
+    net_err_t err = frag_init();
+    if (err < 0) {
+        log_error(LOG_IP,"failed. err = %d", err);
+        return err;
+    }
     log_info(LOG_IP,"done.");
     return NET_OK;
 }
@@ -87,6 +146,158 @@ static net_err_t validate_ipv4_pkt(ipv4_pkt_t* pkt, int size) {
 
 
 /**
+ * free buffer list in a fragment packet
+ */
+static void frag_free_buf_list (ip_frag_t * frag) {
+    list_node_t* node;
+    while ((node = list_remove_first(&frag->buf_list))) {
+        packet_t* buf = list_entry(node, packet_t, node);
+        packet_free(buf);
+    }
+}
+
+/**
+ * allocate a fragment packet, when there is no free one, reuse the oldest one
+ */
+static ip_frag_t * frag_alloc(void) {
+    ip_frag_t * frag = memory_pool_alloc(&frag_mblock, -1);
+    if (!frag) {
+        list_node_t* node = list_remove_last(&frag_list);
+        frag = list_entry(node, ip_frag_t, node);
+        if (frag) {
+            frag_free_buf_list(frag);
+        }
+    }
+    return frag;
+}
+
+/**
+ * free a fragment packet
+ */
+static void frag_free (ip_frag_t * frag) {
+    frag_free_buf_list(frag);
+    list_remove(&frag_list, &frag->node);
+    memory_pool_free(&frag_mblock, frag);
+}
+
+static ip_frag_t* frag_find(ipaddr_t* ip, uint16_t id) {
+    list_node_t* curr;
+    list_for_each(curr, &frag_list) {
+        ip_frag_t* frag = list_entry(curr, ip_frag_t, node);
+        if (ipaddr_is_equal(ip, &frag->ip) && (id == frag->id)) {
+            // move the head, take advantage of the time locality
+            list_remove(&frag_list, curr);
+            list_insert_first(&frag_list, curr);
+            return frag;
+        }
+    }
+    return (ip_frag_t*)0;
+}
+
+static void frag_add (ip_frag_t * frag, ipaddr_t* ip, uint16_t id) {
+    ipaddr_copy(&frag->ip, ip);
+    frag->tmo = 0;
+    frag->id = id;
+    list_node_init(&frag->node);
+    init_list(&frag->buf_list);
+    list_insert_first(&frag_list, &frag->node);
+}
+
+
+static net_err_t frag_insert(ip_frag_t * frag, packet_t * buf, ipv4_pkt_t* pkt) {
+    if (list_count(&frag->buf_list) >= IP_FRAG_MAX_BUF_NR) {
+        log_warning(LOG_IP, "too many buf on frag. drop it.\n");
+        frag_free(frag);
+        return NET_ERR_FULL;
+    }
+
+    // insert while maintaining the order of the buffer list
+    list_node_t* node;
+    list_for_each(node, &frag->buf_list) {
+        packet_t* curr_buf = list_entry(node, packet_t, node);
+        ipv4_pkt_t* curr_pkt = (ipv4_pkt_t*)packet_data(curr_buf);
+        uint16_t curr_start = get_frag_start(curr_pkt);
+        if (get_frag_start(pkt) == curr_start) {
+            // overlap, drop it
+            return NET_ERR_EXIST;
+        } else if (get_frag_end(pkt) <= curr_start) {
+            // insert before
+            list_node_t* pre = list_node_pre(node);
+            if (pre) {
+                list_insert_after(&frag->buf_list, pre, &buf->node);
+            } else {
+                list_insert_first(&frag->buf_list, &buf->node);
+            }
+            return NET_OK;
+        }
+    }
+    list_insert_last(&frag->buf_list, &buf->node);
+    return NET_OK;
+}
+
+
+static int frag_is_all_arrived(ip_frag_t* frag) {
+    int offset = 0;
+    ipv4_pkt_t* pkt = (ipv4_pkt_t*)0;
+    list_node_t* node;
+    // check the continuity of the fragments from head to tail
+    list_for_each(node, &frag->buf_list) {
+        packet_t * buf = list_entry(node, packet_t, node);
+        pkt = (ipv4_pkt_t*)packet_data(buf);
+        int curr_offset = get_frag_start(pkt);
+        if (curr_offset != offset) {
+            return 0;
+        }
+        offset += get_data_size(pkt);
+    }
+    // the more flag must be 0 for the last fragment
+    return pkt ? !pkt->hdr.more : 0;
+}
+
+
+static packet_t * frag_join (ip_frag_t * frag) {
+    packet_t * target = (packet_t *)0;
+    // because the fragments are in order, we can just keep popping the first fragment
+    // and join it with the previous one until we have all the fragments
+    list_node_t *node;
+    while ((node = list_remove_first(&frag->buf_list))) {
+        packet_t * curr = list_entry(node, packet_t, node);
+        if (!target) {
+            target = curr;
+            continue;
+        }
+        // we didn't remove the ip header when inserting fragments,
+        // and we reuse the first packet buffer
+        ipv4_pkt_t * pkt = (ipv4_pkt_t *)packet_data(curr);
+        net_err_t err = packet_remove_header(curr, ipv4_hdr_size(pkt));
+        if (err < 0) {
+            log_error(LOG_IP,"remove header for failed, err = %d\n", err);
+            // don't forget to free the curr, because we have already taken it off the list
+            packet_free(curr);
+            goto free_and_return;
+        }
+        // join two packets, the curr will be freed in packet_join()
+        err = packet_join(target, curr);
+        if (err < 0) {
+            log_error(LOG_IP,"join ip frag failed. err = %d\n", err);
+            packet_free(curr);
+            goto free_and_return;
+        }
+    }
+    frag_free(frag);
+    return target;
+free_and_return:
+    // free the target and fragmented packet
+    // be careful when there is no fragments, the target might be null
+    if (target) {
+        packet_free(target);
+    }
+    frag_free(frag);
+    return (packet_t *)0;
+}
+
+
+/**
  * this function handles single normal ip packet, without fragmentation
  * Be careful: when called by ipv4_in, the endian of the packet header is already converted to host byte order
  * */
@@ -115,6 +326,42 @@ static net_err_t ip_normal_in(netif_t* netif, packet_t* packet, ipaddr_t* src, i
     }
     return NET_ERR_NOT_SUPPORT;
 }
+
+
+
+static net_err_t ip_frag_in (netif_t * netif, packet_t * buf, ipaddr_t* src, ipaddr_t* dest) {
+    ipv4_pkt_t * curr = (ipv4_pkt_t *)packet_data(buf);
+    ip_frag_t * frag = frag_find(src, curr->hdr.id);
+    if (!frag) {
+        frag = frag_alloc();
+        frag_add(frag, src, curr->hdr.id);
+    }
+    net_err_t err = frag_insert(frag, buf, curr);
+    if (err < 0) {
+        log_warning(LOG_IP, "frag insert failed.");
+        return err;
+    }
+    if (frag_is_all_arrived(frag)) {
+        packet_t * full_buf = frag_join(frag);
+//        log_info(LOG_IP, "join all ip frags success.\n");
+//        display_ip_frags();
+        if (!full_buf) {
+            log_error(LOG_IP,"join all ip frags failed.\n");
+            display_ip_frags();
+            return NET_OK;
+        }
+        err = ip_normal_in(netif, full_buf, src, dest);
+        if (err < 0) {
+            log_warning(LOG_IP,"ip frag in error. err=%d\n", err);
+            // the full_buf has to be freed in this function
+            packet_free(full_buf);
+            return NET_OK;
+        }
+    }
+    display_ip_frags();
+    return NET_OK;
+}
+
 
 net_err_t ipv4_in(netif_t* netif, packet_t* buf) {
     log_info(LOG_IP, "IP in\n");
@@ -151,7 +398,11 @@ net_err_t ipv4_in(netif_t* netif, packet_t* buf) {
     if (!ipaddr_is_match(&dest_ip, &netif->ipaddr, &netif->netmask)) {
         return NET_ERR_UNREACH;
     }
-    err = ip_normal_in(netif, buf, &src_ip, &dest_ip);
+    if (pkt->hdr.offset || pkt->hdr.more) {
+        err = ip_frag_in(netif, buf, &src_ip, &dest_ip);
+    } else {
+        err = ip_normal_in(netif, buf, &src_ip, &dest_ip);
+    }
     return err;
 }
 

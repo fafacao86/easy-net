@@ -26,8 +26,8 @@
 #define HANDLER_BUFFER_SIZE         10			// size of the message buffer for the handler thread
 #define HANDLER_LOCK_TYPE           LOCKER_THREAD  // type of locker for the handler thread
 #define PACKET_PAGE_SIZE           128        // size of each page in a packet
-#define PACKET_PAGE_CNT            100         // size of the packer memory pool
-#define PACKET_BUFFER_SIZE         100       // size of the packer buffer memory pool
+#define PACKET_PAGE_CNT            512         // size of the page memory pool
+#define PACKET_BUFFER_SIZE         256       // size of the packer buffer memory pool
 
 #define TIMER_SCAN_PERIOD           500         // period of timer scan
 
@@ -53,6 +53,8 @@
 #define ARP_ENTRY_PENDING_TMO			3               // pending arp entry timeout， RFC1122 suggests 1 second
 #define ARP_ENTRY_RETRY_CNT				3               // pending arp entry retry count
 #define ARP_TIMER_TMO               1               // ARP scanner timer timeout value, in seconds
-
 #define NET_IP_DEF_TTL                 64                 // default time-to-live value for IP packets
+#define IP_FRAGS_MAX_NR               16                 // maximum number of big ip packet can be fragmented
+#define IP_FRAG_MAX_BUF_NR            16                 // maximum number of fragments in a big ip packet
+
 #endif
