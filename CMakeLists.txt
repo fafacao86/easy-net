@@ -14,6 +14,7 @@ include_directories(
         ${PROJECT_SOURCE_DIR}/include/common
         ${PROJECT_SOURCE_DIR}/test
         ${PROJECT_SOURCE_DIR}/include/platform
+        ${PROJECT_SOURCE_DIR}/include/api
         ${PROJECT_SOURCE_DIR}/include/stack/link
         ${PROJECT_SOURCE_DIR}/include/stack/network
 )
@@ -38,7 +39,13 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         include/stack/network/icmpv4.h
         src/stack/network/icmpv4.c
         src/stack/app/ping/ping.h
-        src/stack/app/ping/ping.c)
+        src/stack/app/ping/ping.c
+        include/api/socket.h
+        include/api/net_api.h
+        src/api/net_api.c
+        src/api/socket.c
+        src/api/sock.c
+        include/api/sock.h)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

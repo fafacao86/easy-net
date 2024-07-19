@@ -7,6 +7,7 @@
 #include "arp.h"
 #include "icmpv4.h"
 #include "ipv4.h"
+#include "sock.h"
 
 /**
  * initialization of the protocol stack
@@ -22,6 +23,7 @@ net_err_t init_stack(void) {
     ipv4_init();
     icmpv4_init();
     init_msg_handler();
+    socket_init();
     //loop_init();
     return NET_OK;
 }

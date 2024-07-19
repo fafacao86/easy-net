@@ -1,6 +1,7 @@
 #include <string.h>
 #include "ping.h"
 #include "sys_plat.h"
+#include "net_api.h"
 
 
 static uint16_t checksum(void* buf, uint16_t len) {
