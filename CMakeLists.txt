@@ -36,7 +36,9 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         include/stack/network/ipv4.h
         test/ipv4_test.c
         include/stack/network/icmpv4.h
-        src/stack/network/icmpv4.c)
+        src/stack/network/icmpv4.c
+        src/stack/app/ping/ping.h
+        src/stack/app/ping/ping.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

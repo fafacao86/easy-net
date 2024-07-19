@@ -645,16 +645,18 @@ uint16_t packet_checksum16(packet_t* buf, int size, uint32_t pre_sum, int comple
         return 0;
     }
     uint32_t sum = pre_sum;
+    uint32_t offset = 0;
     while (size > 0) {
-        int page_size = curr_page_remain(buf);
+        int blk_size = curr_page_remain(buf);
 
-        int curr_size = (page_size > size ? size : page_size);
-        sum = checksum16(buf->page_offset, curr_size, sum, 0);
+        int curr_size = (blk_size > size ? size : blk_size);
+        sum = checksum16(offset, buf->page_offset, curr_size, sum, 0);
 
         assert_halt(buf->page_offset + curr_size <= buf->cur_page->data + PACKET_PAGE_SIZE, "out bound");
 
         move_forward(buf, curr_size);
         size -= curr_size;
+        offset += curr_size;
     }
     return complement ? (uint16_t)~sum : (uint16_t)sum;
 }

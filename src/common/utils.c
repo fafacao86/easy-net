@@ -27,22 +27,28 @@ net_err_t utils_init(void) {
 /**
  * https://www.youtube.com/watch?v=_zMf4KYoKbM
  * */
-uint16_t checksum16(void* buf, uint16_t len, uint32_t pre_sum, int complement) {
+uint16_t checksum16(uint32_t offset, void* buf, uint16_t len, uint32_t pre_sum, int complement) {
     uint16_t* curr_buf = (uint16_t *)buf;
     uint32_t checksum = pre_sum;
+    if (offset & 0x1) {
+        uint8_t * buf = (uint8_t *)curr_buf;
+        checksum += *buf++ << 8;
+        curr_buf = (uint16_t *)buf;
+        len--;
+    }
 
     while (len > 1) {
         checksum += *curr_buf++;
         len -= 2;
     }
-    // the length might be odd number
+
     if (len > 0) {
         checksum += *(uint8_t*)curr_buf;
     }
-    // if the result is more than 16 bits, add it to the lower 16 bits
     uint16_t high;
     while ((high = checksum >> 16) != 0) {
         checksum = high + (checksum & 0xffff);
     }
+
     return complement ? (uint16_t)~checksum : (uint16_t)checksum;
 }

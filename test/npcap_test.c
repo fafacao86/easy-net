@@ -3,6 +3,7 @@
 #include "stack.h"
 #include "log.h"
 #include "testcase.h"
+#include "src/stack/app/ping/ping.h"
 
 pcap_data_t netdev0_data = { .ip = netdev0_phy_ip, .hwaddr = netdev0_hwaddr };
 static netif_t* netif = NULL;
@@ -21,6 +22,10 @@ net_err_t init_network_device(void) {
     return NET_OK;
 }
 
+void show_help (void) {
+    printf("--------------- cmd list ------------------ \n");
+    printf("1.ping dest(ip or name)\n");
+}
 
 int main (void) {
     init_stack();
@@ -28,7 +33,7 @@ int main (void) {
     init_network_device();
     start_easy_net();
     //test_arp(netif);
-    test_ipv4();
+    //test_ipv4();
 //    init_network_device();
     //start_easy_net();
     //test_logging();
@@ -36,5 +41,14 @@ int main (void) {
     //test_memory_pool();
     //test_msg_handler();
     //test_packet_buffer();
-    while(1)sys_sleep(1000);
+    char cmd[32], param[32];
+    while (1) {
+        show_help();
+        printf(">>");
+        scanf("%s %s", cmd, param);
+        ping_t p;
+        if (strcmp(cmd, "ping") == 0) {
+            ping_run(&p, param, 4, 1000, 1000);
+        }
+    }
 }

@@ -239,7 +239,7 @@ static packet_t * frag_join (ip_frag_t * frag) {
 // timer for fragmentation timeout
 static void frag_tmo(net_timer_t* timer, void * arg) {
     list_node_t* curr, * next;
-    log_info(LOG_IP, "scan frag");
+    //log_info(LOG_IP, "scan frag");
     for (curr = list_first(&frag_list); curr; curr = next) {
         next = list_node_next(curr);
         ip_frag_t * frag = list_entry(curr, ip_frag_t, node);
@@ -310,7 +310,7 @@ static net_err_t validate_ipv4_pkt(ipv4_pkt_t* pkt, int size) {
         return NET_ERR_SIZE;
     }
     if (pkt->hdr.hdr_checksum) {
-        uint16_t c = checksum16((uint16_t*)pkt, hdr_len, 0, 1);
+        uint16_t c = checksum16(0,(uint16_t*)pkt, hdr_len, 0, 1);
         if (c != 0) {
             log_warning(LOG_IP, "Bad checksum: %0x(correct is: %0x)\n", pkt->hdr.hdr_checksum, c);
             return NET_ERR_BROKEN;
@@ -358,32 +358,28 @@ static net_err_t ip_frag_in (netif_t * netif, packet_t * buf, ipaddr_t* src, ipa
         frag = frag_alloc();
         frag_add(frag, src, curr->hdr.id);
     }
-    static int cnt = 0;
-    if(cnt % 2 == 0){
         net_err_t err = frag_insert(frag, buf, curr);
         if (err < 0) {
             log_warning(LOG_IP, "frag insert failed.");
             return err;
         }
-        if (frag_is_all_arrived(frag)) {
-            packet_t * full_buf = frag_join(frag);
+    if (frag_is_all_arrived(frag)) {
+        packet_t * full_buf = frag_join(frag);
 //        log_info(LOG_IP, "join all ip frags success.\n");
 //        display_ip_frags();
-            if (!full_buf) {
-                log_error(LOG_IP,"join all ip frags failed.\n");
-                display_ip_frags();
-                return NET_OK;
-            }
-            err = ip_normal_in(netif, full_buf, src, dest);
-            if (err < 0) {
-                log_warning(LOG_IP,"ip frag in error. err=%d\n", err);
-                // the full_buf has to be freed in this function
-                packet_free(full_buf);
-                return NET_OK;
-            }
+        if (!full_buf) {
+            log_error(LOG_IP,"join all ip frags failed.\n");
+            display_ip_frags();
+            return NET_OK;
+        }
+        err = ip_normal_in(netif, full_buf, src, dest);
+        if (err < 0) {
+            log_warning(LOG_IP,"ip frag in error. err=%d\n", err);
+            // the full_buf has to be freed in this function
+            packet_free(full_buf);
+            return NET_OK;
         }
     }
-    cnt++;
     display_ip_frags();
     return NET_OK;
 }

@@ -43,6 +43,6 @@ uint32_t swap_u32(uint32_t v);
 #endif
 
 net_err_t utils_init(void);
-uint16_t checksum16(void* buf, uint16_t len, uint32_t pre_sum, int complement);
+uint16_t checksum16(uint32_t offset, void* buf, uint16_t len, uint32_t pre_sum, int complement);
 
 #endif //EASY_NET_UTILS_H
