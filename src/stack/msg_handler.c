@@ -26,6 +26,55 @@ static exmsg_t msg_buffer[HANDLER_BUFFER_SIZE];  // For the memory pool
 static memory_pool_t msg_mem_pool;          // memory pool
 
 
+/**
+ * API stub, called by consumer thread
+ * */
+net_err_t exmsg_func_exec(exmsg_func_t func, void * param) {
+    // wrap the func pointer and parameter into a func_msg_t struct
+    // put it into the handler thread queue
+    // then wait on the semaphore for the worker thread to finish the execution
+    func_msg_t func_msg;
+    func_msg.thread = sys_thread_self();
+    func_msg.func = func;
+    func_msg.param = param;
+    func_msg.err = NET_OK;
+    func_msg.wait_sem = sys_sem_create(0);
+    if (func_msg.wait_sem == SYS_SEM_INVALID) {
+        log_error(LOG_HANDLER, "error create wait sem");
+        return NET_ERR_MEM;
+    }
+
+    exmsg_t* msg = (exmsg_t*)memory_pool_alloc(&msg_mem_pool, 0);
+    msg->type = NET_EXMSG_FUN;
+    msg->func_msg = &func_msg;
+
+    log_info(LOG_HANDLER, "1.begin call func: %p", func);
+    net_err_t err = fixed_queue_send(&msg_queue, msg, 0);
+    if (err < 0) {
+        log_error(LOG_HANDLER, "send msg to queue ailed. err = %d", err);
+        memory_pool_free(&msg_mem_pool, msg);
+        sys_sem_free(func_msg.wait_sem);
+        return err;
+    }
+
+    sys_sem_wait(func_msg.wait_sem, 0);
+    log_info(LOG_HANDLER, "4.end call func: %p", func);
+
+    // free the wait semaphore
+    sys_sem_free(func_msg.wait_sem);
+    return func_msg.err;
+}
+
+/**
+ * called by worker thread to execute the function and notify the API consumer thread
+ */
+static net_err_t do_func(func_msg_t* func_msg) {
+    log_info(LOG_HANDLER, "2.calling func");
+    func_msg->err = func_msg->func(func_msg);
+    sys_sem_notify(func_msg->wait_sem);
+    log_info(LOG_HANDLER, "3.func exec complete");
+    return NET_OK;
+}
 
 /**
  * Initialize the message handler thread
@@ -93,6 +142,9 @@ static void work_thread (void * arg) {
                 case NET_EXMSG_NETIF_IN:
                     do_netif_in(msg);
                     break;
+                case NET_EXMSG_FUN:               // API call
+                    do_func(msg->func_msg);
+                    break;
             }
             memory_pool_free(&msg_mem_pool, msg);
         }
@@ -137,5 +189,12 @@ net_err_t handler_netif_in(netif_t* netif) {
         memory_pool_free(&msg_mem_pool, msg);
         return err;
     }
+    return NET_OK;
+}
+
+
+net_err_t test_func (struct _func_msg_t* msg) {
+    msg->err = 0x1234;
+    printf("hello: %x\n", *(int *)msg->param);
     return NET_OK;
 }

@@ -41,6 +41,8 @@ int main (void) {
     //test_memory_pool();
     //test_msg_handler();
     //test_packet_buffer();
+    int arg = 0x1234;
+    exmsg_func_exec(test_func, (void *)&arg);
     char cmd[32], param[32];
     while (1) {
         show_help();
