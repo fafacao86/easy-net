@@ -45,6 +45,17 @@ struct x_in_addr {
 
 
 /**
+ * general socket address structure.
+ * you can cast it to struct x_sockaddr_in freely
+ */
+struct x_sockaddr {
+    uint8_t sa_len;
+    uint8_t sa_family;
+    uint8_t sa_data[14];
+};
+
+
+/**
  * Internet socket address, includes port and IP address.
  * the size of this structure is the same with struct sockaddr
  */

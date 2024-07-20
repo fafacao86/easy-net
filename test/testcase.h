@@ -28,4 +28,7 @@ void test_arp(netif_t * netif);
 
 #include "ipv4.h"
 void test_ipv4();
+
+#include "net_api.h"
+void test_net_api();
 #endif
