@@ -16,6 +16,7 @@ typedef enum _net_err_t {
     NET_ERR_NOT_SUPPORT = -11, // Not supported
     NET_ERR_BROKEN = -12, // Broken packet
     NET_ERR_UNREACH = -13, // Unreachable address
+    NET_ERR_WRONG_SOCKET = -14, // Wrong socket fd
 }net_err_t;
 
 #endif

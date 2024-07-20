@@ -3,12 +3,16 @@
 
 #include <stdint.h>
 #include "ipaddr.h"
+#include "sock.h"
 /**
  * Linux Manual Page is a good reference for this part.
  *
  * this file should always be included at last, because it redefines some macros
  * */
 int x_socket(int family, int type, int protocol);
+
+ssize_t x_sendto(int sid, const void* buf, size_t len, int flags, const struct x_sockaddr* dest, x_socklen_t dest_len);
+
 
 #undef AF_INET
 #define AF_INET                 0               // IPv4
@@ -67,11 +71,14 @@ struct x_sockaddr_in {
     char sin_zero[8];               // padding to align to 16 bytes
 };
 #pragma pack()
+
+
 typedef struct _socket_t {
     enum {
         SOCKET_STATE_FREE,
         SOCKET_STATE_USED,
     }state;
+    sock_t * sock;
 }x_socket_t;
 
 #endif //EASY_NET_SOCKET_H

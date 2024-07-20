@@ -1,9 +1,9 @@
 #include "sys_plat.h"
-#include "socket.h"
-#include "sock.h"
 #include "msg_handler.h"
 #include "log.h"
-
+#include "raw.h"
+#include "socket.h"
+#include "sock.h"
 #define SOCKET_MAX_NR		10
 static x_socket_t socket_tbl[SOCKET_MAX_NR];
 
@@ -42,19 +42,48 @@ static void socket_free(x_socket_t* s) {
 
 net_err_t socket_init(void) {
     plat_memset(socket_tbl, 0, sizeof(socket_tbl));
+    raw_init();
     return NET_OK;
 }
 
 
 
 net_err_t sock_create_req_in(func_msg_t* api_msg) {
+    // sock for different protocols
+    static const struct sock_info_t {
+        int protocol;
+        sock_t* (*create) (int family, int protocol);
+    }  sock_tbl[] = {
+            [SOCK_RAW] = { .protocol = 0, .create = raw_create,}
+    };
+
     sock_req_t * req = (sock_req_t *)api_msg->param;
     sock_create_t * param = &req->create;
+
     x_socket_t * socket = socket_alloc();
     if (socket == (x_socket_t *)0) {
         log_error(LOG_SOCKET, "no socket");
         return NET_ERR_MEM;
     }
+    if ((param->type < 0) || (param->type >= sizeof(sock_tbl) / sizeof(sock_tbl[0]))) {
+        log_error(LOG_SOCKET, "unknown type: %d", param->type);
+        socket_free(socket);
+        return NET_ERR_PARAM;
+    }
+
+    // create sock according to the type
+    const struct sock_info_t* info = sock_tbl + param->type;
+    if (param->protocol == 0) {
+        param->protocol = info->protocol;
+    }
+    sock_t * sock = info->create(param->family, param->protocol);
+    if (!sock) {
+        log_error(LOG_SOCKET, "create sock failed, type: %d", param->type);
+        socket_free(socket);
+        return NET_ERR_MEM;
+    }
+
+    socket->sock = sock;
     req->sockfd = get_index(socket);
     return NET_OK;
 }
@@ -73,3 +102,23 @@ net_err_t sock_init(sock_t* sock, int family, int protocol, const sock_ops_t * o
     list_node_init(&sock->node);
     return NET_OK;
 }
+
+
+net_err_t sock_sendto_req_in (func_msg_t * api_msg) {
+    sock_req_t * req = (sock_req_t *)api_msg->param;
+    x_socket_t* s = get_socket(req->sockfd);
+    if (!s) {
+        log_error(LOG_SOCKET, "param error: socket = %d.", s);
+        return NET_ERR_PARAM;
+    }
+    sock_t* sock = s->sock;
+    sock_data_t * data = (sock_data_t *)&req->data;
+    if (!sock->ops->sendto) {
+        log_error(LOG_SOCKET, "this function is not implemented");
+        return NET_ERR_NOT_SUPPORT;
+    }
+    net_err_t err = sock->ops->sendto(sock, data->buf, data->len, data->flags,
+                                      data->addr, *data->addr_len, &req->data.comp_len);
+    return err;
+}
+

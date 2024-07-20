@@ -44,6 +44,17 @@ typedef struct _sock_t {
     list_node_t node;
 }sock_t;
 
+/**
+ * data transfer req
+ * */
+typedef struct _sock_data_t {
+    uint8_t * buf;
+    size_t len;
+    int flags;
+    struct x_sockaddr* addr;
+    x_socklen_t * addr_len;
+    ssize_t comp_len;              // bytes actually sent/received
+}sock_data_t;
 
 
 typedef struct _sock_create_t {
@@ -59,10 +70,12 @@ typedef struct _sock_req_t {
     int sockfd;
     union {
         sock_create_t create;
+        sock_data_t data;
     };
 }sock_req_t;
 
 net_err_t sock_create_req_in(func_msg_t* api_msg);
+net_err_t sock_sendto_req_in (func_msg_t * api_msg);
 net_err_t sock_init(sock_t* sock, int family, int protocol, const sock_ops_t * ops);
 net_err_t socket_init(void);
 

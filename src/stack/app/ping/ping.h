@@ -6,6 +6,7 @@
 #include <winsock2.h>
 #include <WS2tcpip.h>
 #include <time.h>
+#include "net_api.h"
 
 #else
 #include <arpa/inet.h>

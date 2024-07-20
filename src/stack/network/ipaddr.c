@@ -113,3 +113,8 @@ int ipaddr_is_match(const ipaddr_t* dest, const ipaddr_t* src, const ipaddr_t * 
     }
     return ipaddr_is_equal(dest, src);
 }
+
+
+int ipaddr_is_any(const ipaddr_t* ip) {
+    return ip->q_addr == 0;
+}

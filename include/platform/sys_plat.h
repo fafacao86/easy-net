@@ -6,8 +6,6 @@
 #include <stdint.h>
 #include <time.h>
 
-// 系统硬件配置
-// 不同网卡配置，共2块网卡
 #if 1
 static const char netdev0_ip[] = "192.168.74.2";
 static const char netdev0_gw[] = "192.168.74.1";
@@ -65,23 +63,21 @@ typedef sem_t * sys_sem_t;            // 信号量
 #define plat_printf         log_printf
 
 #elif defined(SYS_PLAT_WINDOWS)
-// pcap引用了winsock.h，下面用了windows，有些宏重复了
-// 加上下面的宏可避免编译出错
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include "lib/npcap/Include/pcap.h"
 #include <stdio.h>
 #include <string.h>
 
-typedef DWORD net_time_t;      // 时间类型
+typedef DWORD net_time_t;
 
 #define SYS_THREAD_INVALID          (HANDLE)0
 #define SYS_SEM_INVALID             (HANDLE)0
 #define SYS_MUTEx_INVALID           (HANDLE)0
 
-typedef HANDLE sys_mutex_t;         // 互斥锁
-typedef HANDLE sys_thread_t;        // 线程
-typedef HANDLE sys_sem_t;           // 信号量
+typedef HANDLE sys_mutex_t;
+typedef HANDLE sys_thread_t;
+typedef HANDLE sys_sem_t;
 
 #define plat_strlen         strlen
 #define plat_strcpy         strcpy
@@ -110,7 +106,7 @@ pcap_t * pcap_device_open(const char* ip, const uint8_t* mac_addr);
 #include <string.h>
 #include <stdlib.h>
 
-typedef struct timeval net_time_t;      // 时间类型
+typedef struct timeval net_time_t;
 
 #define SYS_THREAD_INVALID          (sys_thread_t)0
 #define SYS_SEM_INVALID             (sys_sem_t)0
@@ -129,15 +125,14 @@ typedef struct timeval net_time_t;      // 时间类型
 #define plat_printf         printf
 
 typedef struct _xsys_sem_t {
-    int count;                          // 信号量计数
-    pthread_cond_t cond;                // 条件变量
-    pthread_mutex_t locker;             // 访问C的互斥锁
+    int count;
+    pthread_cond_t cond;
+    pthread_mutex_t locker;
 } * sys_sem_t;
 
-typedef pthread_t sys_thread_t;           // 线程重定义
-typedef pthread_mutex_t * sys_mutex_t;      // 互斥信号量
+typedef pthread_t sys_thread_t;
+typedef pthread_mutex_t * sys_mutex_t;
 
-// PCAP网卡驱动相关函数
 int pcap_find_device(const char* ip, char* name_buf);
 int pcap_show_list(void);
 pcap_t * pcap_device_open(const char* ip, const uint8_t* mac_addr);

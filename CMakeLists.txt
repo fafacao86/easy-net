@@ -46,7 +46,9 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         src/api/socket.c
         src/api/sock.c
         include/api/sock.h
-        test/api_test.c)
+        test/api_test.c
+        include/api/raw.h
+        src/api/raw.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

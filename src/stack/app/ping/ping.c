@@ -31,11 +31,11 @@ void ping_run(ping_t * ping, const char* dest, int count, int size, int interval
     static uint16_t start_id = PING_DEFAULT_ID;
     char buf[512];
 
-#if defined(SYS_PLAT_WINDOWS)
-    SOCKET sk = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-#else
+//#if defined(SYS_PLAT_WINDOWS)
+//    SOCKET sk = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+//#else
     int sk = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-#endif
+//#endif
     if (sk < 0) {
         printf("create socket error\n");
         return;
@@ -49,7 +49,7 @@ void ping_run(ping_t * ping, const char* dest, int count, int size, int interval
     inet_ntop(AF_INET, &addr.sin_addr.s_addr, buf, sizeof(buf));
     printf("try to ping %s [%s]\n", dest, buf);
 
-#define USE_CONNECT
+//#define USE_CONNECT
 #ifdef USE_CONNECT
     connect(sk, (const struct sockaddr*)&addr, sizeof(struct sockaddr_in));
 #endif
@@ -61,7 +61,7 @@ void ping_run(ping_t * ping, const char* dest, int count, int size, int interval
     tmo.tv_sec = 5;
     tmo.tv_usec = 0;
 #endif
-    setsockopt(sk, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tmo, sizeof(tmo));
+    //setsockopt(sk, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tmo, sizeof(tmo));
 
     // Unix Network Programming, put time in request packet data section
     size -= sizeof(clock_t);
@@ -84,6 +84,7 @@ void ping_run(ping_t * ping, const char* dest, int count, int size, int interval
 #else
         ssize_t size = sendto(sk, (const char *)&ping->req, total_size, 0,
                         (struct sockaddr *)&addr, sizeof(addr));
+        sys_sleep(1000000);
 #endif
         if (size < 0) {
             printf("send ping request failed.\n");
