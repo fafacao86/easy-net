@@ -68,7 +68,7 @@
 * Socket properties.
 */
 #define RAW_MAX_NR               100                // maximum number of raw sockets
-
+#define RAW_MAX_RECV             50                 // raw socket receive buffer size
 
 
 

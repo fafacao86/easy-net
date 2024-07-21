@@ -116,6 +116,5 @@ net_err_t socket_init(void);
 void sock_uninit (sock_t * sock);
 net_err_t sock_setsockopt_req_in(func_msg_t * api_msg);
 net_err_t sock_setopt(struct _sock_t* s,  int level, int optname, const char * optval, int optlen);
-
-
+void sock_wakeup (sock_t * sock, int type, int err);
 #endif //EASY_NET_SOCK_H

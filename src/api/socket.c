@@ -85,7 +85,12 @@ ssize_t x_recvfrom(int sockfd, void* buf, size_t size, int flags, struct x_socka
         if (req.data.comp_len) {
             return (ssize_t)req.data.comp_len;
         }
+        log_info(LOG_SOCKET, "no data, wait for %d ms", req.wait_tmo);
+        net_time_t time;
+        sys_time_curr(&time);
         err = sock_wait_enter(req.wait, req.wait_tmo);
+        int diff_ms = sys_time_goes(&time);
+        log_info(LOG_SOCKET, "wait_t %p waited %d ms", req.wait, diff_ms);
         if (err < 0) {
             log_error(LOG_SOCKET, "recv failed %d.", err);
             return -1;

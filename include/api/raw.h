@@ -5,6 +5,7 @@
 typedef struct _raw_t {
     sock_t base;
     sock_wait_t rcv_wait;
+    list_t recv_list;
 }raw_t;
 
 net_err_t raw_init(void);

@@ -162,6 +162,7 @@ net_err_t sock_recvfrom_req_in(func_msg_t * api_msg) {
                                         data->addr, data->addr_len, &req->data.comp_len);
     if (err == NET_ERR_NEED_WAIT) {
         if (sock->rcv_wait) {
+            log_info(LOG_SOCKET, "sock %p add to rcv wait %p", sock, sock->rcv_wait);
             sock_wait_add(sock->rcv_wait, sock->rcv_tmo, req);
         }
     }
@@ -206,10 +207,12 @@ void sock_wait_add (sock_wait_t * wait, int tmo, struct _sock_req_t * req) {
  * called by handler thread, if it wants the api consumer to wake up
  */
 void sock_wait_leave (sock_wait_t * wait, net_err_t err) {
+    log_info(LOG_SOCKET, "sock_wait_leave: %d", wait->waiting);
     if (wait->waiting > 0) {
         wait->waiting--;
         wait->err = err;
         sys_sem_notify(wait->sem);
+        log_info(LOG_SOCKET, "notify sock_wait_leave: %d", wait->waiting);
     }
 }
 
@@ -257,4 +260,20 @@ net_err_t sock_setopt(struct _sock_t* sock,  int level, int optname, const char 
             break;
     }
     return NET_ERR_NOT_SUPPORT;
+}
+
+
+void sock_wakeup (sock_t * sock, int type, int err) {
+    if (type & SOCK_WAIT_CONN) {
+        sock_wait_leave(sock->conn_wait, err);
+    }
+
+    if (type & SOCK_WAIT_WRITE) {
+        sock_wait_leave(sock->snd_wait, err);
+    }
+
+    if (type & SOCK_WAIT_READ) {
+        sock_wait_leave(sock->rcv_wait, err);
+    }
+    sock->err = err;
 }

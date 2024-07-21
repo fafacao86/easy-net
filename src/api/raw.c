@@ -56,13 +56,47 @@ static net_err_t raw_sendto (struct _sock_t * sock, const void* buf, size_t len,
     return err;
 }
 
+
+/**
+ * If the buffer is empty, return NET_ERR_NEED_WAIT, let the consumer to wait for data.
+ * Copy the data to the user buffer,
+ * return the actual length of data received and src address via pointers provided by consumer.
+ * */
 static net_err_t raw_recvfrom (struct _sock_t* sock, void* buf, size_t len, int flags,
                                struct x_sockaddr* src, x_socklen_t * addr_len, ssize_t * result_len) {
     log_info(LOG_RAW, "raw recvfrom\n");
     raw_t * raw = (raw_t *)sock;
+//    *result_len = 0;
+//    return NET_ERR_NEED_WAIT;
+    list_node_t * first = list_remove_first(&raw->recv_list);
+    if (!first) {
+        *result_len = 0;
+        return NET_ERR_NEED_WAIT;
+    }
 
-    *result_len = 0;
-    return NET_ERR_NEED_WAIT;
+    packet_t* pPacket = list_entry(first, packet_t, node);
+    assert_halt(pPacket != (packet_t *)0, "pktbuf error");
+    // fill the source address, return to caller
+    ipv4_hdr_t* iphdr = (ipv4_hdr_t*)packet_data(pPacket);
+    struct x_sockaddr_in* addr = (struct x_sockaddr_in*)src;
+    plat_memset(addr, 0, sizeof(struct x_sockaddr));
+    addr->sin_family = AF_INET;
+    addr->sin_port = 0;
+    plat_memcpy(&addr->sin_addr, iphdr->src_ip, IPV4_ADDR_SIZE);
+
+    int size = (pPacket->total_size > (int)len) ? (int)len : pPacket->total_size;
+    packet_reset_pos(pPacket);
+    // copy data to user buffer
+    net_err_t err= packet_read(pPacket, buf, size);
+    if (err < 0) {
+        packet_free(pPacket);
+        log_error(LOG_RAW, "pktbuf read error");
+        return err;
+    }
+    packet_free(pPacket);
+    // fill the actual length of data received
+    *result_len = size;
+    return NET_OK;
 }
 
 /**
@@ -86,6 +120,7 @@ sock_t* raw_create(int family, int protocol) {
         memory_pool_free(&raw_mblock, raw);
         return (sock_t*)0;
     }
+    init_list(&raw->recv_list);
     raw->base.rcv_wait = &raw->rcv_wait;
     if (sock_wait_init(raw->base.rcv_wait) < 0) {
         log_error(LOG_RAW, "create rcv.wait failed");
@@ -122,7 +157,8 @@ static raw_t * raw_find (ipaddr_t * src, ipaddr_t * dest, int protocol) {
 }
 
 /**
- * pass ip packet to raw socket.
+ * this will be called by ipv4_in when it receives ip packets.
+ * pass ip packet to raw socket. wake up previously waiting recvfrom
  * */
 net_err_t raw_in(packet_t* packet) {
     ipv4_hdr_t* iphdr = (ipv4_hdr_t*)packet_data(packet);
@@ -138,6 +174,12 @@ net_err_t raw_in(packet_t* packet) {
         log_warning(LOG_RAW, "no raw for this packet");
         return NET_ERR_UNREACH;
     }
-
+    if (list_count(&raw->recv_list) < RAW_MAX_RECV) {
+        list_insert_last(&raw->recv_list, &packet->node);
+        sock_wakeup((sock_t *)raw, SOCK_WAIT_READ, NET_OK);
+    } else {
+        // if the buffer queue is full, drop the packet
+        packet_free(packet);
+    }
     return NET_OK;
 }

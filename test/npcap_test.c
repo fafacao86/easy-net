@@ -41,7 +41,7 @@ int main (void) {
     //test_memory_pool();
     //test_msg_handler();
     //test_packet_buffer();
-    test_net_api();
+    //test_net_api();
 
     char cmd[32], param[32];
     while (1) {
