@@ -97,3 +97,47 @@ create_failed:
     sock_uninit((sock_t *)raw);
     return (sock_t *)0;
 }
+
+/**
+ * Tuple src-dst-protocol can pinpoint a raw socket.
+ * */
+static raw_t * raw_find (ipaddr_t * src, ipaddr_t * dest, int protocol) {
+    list_node_t* node;
+    raw_t * found = (raw_t *)0;
+    list_for_each(node, &raw_list) {
+        raw_t* raw = (raw_t *)list_entry(node, sock_t, node);
+        if (raw->base.protocol && (raw->base.protocol != protocol)) {
+            continue;
+        }
+        if (!ipaddr_is_any(&raw->base.local_ip) && !ipaddr_is_equal(&raw->base.local_ip, dest)) {
+            continue;
+        }
+        if (!ipaddr_is_any(&raw->base.remote_ip) && !ipaddr_is_equal(&raw->base.remote_ip, src)) {
+            continue;
+        }
+        found = raw;
+        break;
+    }
+    return found;
+}
+
+/**
+ * pass ip packet to raw socket.
+ * */
+net_err_t raw_in(packet_t* packet) {
+    ipv4_hdr_t* iphdr = (ipv4_hdr_t*)packet_data(packet);
+    net_err_t err = NET_ERR_UNREACH;
+
+    ipaddr_t src, dest;
+    ipaddr_from_buf(&dest, iphdr->dest_ip);
+    ipaddr_from_buf(&src, iphdr->src_ip);
+
+    // to the corresponding raw socket
+    raw_t * raw = raw_find(&src, &dest, iphdr->protocol);
+    if (raw == (raw_t *)0) {
+        log_warning(LOG_RAW, "no raw for this packet");
+        return NET_ERR_UNREACH;
+    }
+
+    return NET_OK;
+}

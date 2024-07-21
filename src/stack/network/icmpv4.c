@@ -3,6 +3,7 @@
 #include "ipv4.h"
 #include "utils.h"
 #include "protocols.h"
+#include "raw.h"
 
 #if LOG_DISP_ENABLED(LOG_ICMP)
 static void display_icmp_packet(char * title, icmpv4_pkt_t  * pkt) {
@@ -94,6 +95,9 @@ static net_err_t validate_icmp(icmpv4_pkt_t * pkt, int size, packet_t * packet) 
 /**
  *  there is no size field in ICMP, so we need to derive it from IP header.
  * the packet in the parameter is ip packet, we need to remove the ip header ourselves.
+ *
+ * for ping request, we need to remove the ip header and reply in this function
+ * for other icmp packet, we need to keep ip header and pass it to upper layer raw socket if there is one.
  */
 net_err_t icmpv4_in(ipaddr_t *src, ipaddr_t * netif_ip, packet_t *packet) {
     log_info(LOG_ICMP, "icmp in !\n");
@@ -105,16 +109,10 @@ net_err_t icmpv4_in(ipaddr_t *src, ipaddr_t * netif_ip, packet_t *packet) {
         return err;
     }
     ip_pkt = (ipv4_pkt_t*)packet_data(packet);
-
-    err = packet_remove_header(packet, iphdr_size);
-    if (err < 0) {
-        log_error(LOG_IP, "remove ip header failed. err = %d\n", err);
-        return NET_ERR_SIZE;
-    }
     packet_reset_pos(packet);
-
-    icmpv4_pkt_t * icmp_pkt = (icmpv4_pkt_t*)packet_data(packet);
-    if ((err = validate_icmp(icmp_pkt, packet->total_size, packet)) != NET_OK) {
+    packet_seek(packet, iphdr_size);    // skip ip header to get icmp header
+    icmpv4_pkt_t * icmp_pkt = (icmpv4_pkt_t*)(packet_data(packet) + iphdr_size);
+    if ((err = validate_icmp(icmp_pkt, packet->total_size-iphdr_size, packet)) != NET_OK) {
         log_warning(LOG_ICMP, "icmp pkt error.drop it. err=%d", err);
         return err;
     }
@@ -122,12 +120,20 @@ net_err_t icmpv4_in(ipaddr_t *src, ipaddr_t * netif_ip, packet_t *packet) {
 
     switch (icmp_pkt->hdr.type) {
         case ICMPv4_ECHO_REQUEST: {
+            err = packet_remove_header(packet, iphdr_size);
+            if (err < 0) {
+                log_error(LOG_IP, "remove ip header failed. err = %d\n", err);
+                return NET_ERR_SIZE;
+            }
             dbg_dump_ip(LOG_ICMP, "icmp request, ip:", src);
             return icmpv4_echo_reply(src, netif_ip, packet);
         }
         default: {
-            packet_free(packet);
-            dbg_dump_ip(LOG_ICMP, "unknown type icmp packet, ip:", src);
+            err = raw_in(packet);
+            if (err < 0) {
+                log_warning(LOG_ICMP, "raw in failed.");
+                return err;
+            }
             return NET_OK;
         }
     }

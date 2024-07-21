@@ -6,6 +6,7 @@
 #include "icmpv4.h"
 #include "memory_pool.h"
 #include "timer.h"
+#include "raw.h"
 
 static uint16_t packet_id = 0;                  // incremental id for ipv4 packet
 
@@ -342,9 +343,15 @@ static net_err_t ip_normal_in(netif_t* netif, packet_t* packet, ipaddr_t* src, i
         }
         case NET_PROTOCOL_TCP:
             break;
-        default:
-            log_warning(LOG_IP, "unknown protocol %d, drop it.\n", pkt->hdr.protocol);
+        default:{
+            //log_warning(LOG_IP, "unknown protocol %d, .\n", pkt->hdr.protocol);
+            net_err_t err = raw_in(packet);
+            if (err < 0) {
+                log_warning(LOG_IP, "raw in error. err = %d\n", err);
+            }
+            return NET_ERR_UNREACH;
             break;
+        }
     }
     return NET_ERR_NOT_SUPPORT;
 }
