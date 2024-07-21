@@ -84,7 +84,7 @@ void ping_run(ping_t * ping, const char* dest, int count, int size, int interval
 #else
         ssize_t size = sendto(sk, (const char *)&ping->req, total_size, 0,
                         (struct sockaddr *)&addr, sizeof(addr));
-        sys_sleep(1000000);
+        sys_sleep(1000);
 #endif
         if (size < 0) {
             printf("send ping request failed.\n");

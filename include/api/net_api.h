@@ -12,6 +12,7 @@ const char * x_inet_ntop(int family, const void *addrptr, char *strptr, size_t l
 // redefine some functions to avoid conflicts with platform
 #define in_addr             x_in_addr
 #define sockaddr_in         x_sockaddr_in
+#define sockaddr            x_sockaddr
 
 #undef htons
 #define htons(v)                x_htons(v)
@@ -32,5 +33,6 @@ const char * x_inet_ntop(int family, const void *addrptr, char *strptr, size_t l
 #define inet_ntop(family, addrptr, strptr, len)     x_inet_ntop(family, addrptr, strptr, len)
 #define socket(family, type, protocol)              x_socket(family, type, protocol)
 #define sendto(s, buf, len, flags, dest, dlen)      x_sendto(s, buf, len, flags, dest, dlen)
+#define recvfrom(s, buf, len, flags, src, slen)     x_recvfrom(s, buf, len, flags, src, slen)
 
 #endif //EASY_NET_NET_API_H

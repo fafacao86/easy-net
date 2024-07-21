@@ -6,6 +6,24 @@
 /**
  * for socket type specific operations
  * */
+#define SOCK_WAIT_READ         (1 << 0)
+#define SOCK_WAIT_WRITE        (1 << 1)
+#define SOCK_WAIT_CONN         (1 << 2)
+#define SOCK_WAIT_ALL          (SOCK_WAIT_CONN |SOCK_WAIT_READ | SOCK_WAIT_WRITE)
+
+typedef struct _sock_wait_t {
+    net_err_t err;                  // result of wait
+    int waiting;                    // are there any events to wait for
+    sys_sem_t sem;                  // semaphore to wait on
+}sock_wait_t;
+
+
+net_err_t sock_wait_init (sock_wait_t * wait);
+void sock_wait_destroy (sock_wait_t * wait);
+void sock_wait_add (sock_wait_t * wait, int tmo, struct _sock_req_t * req);
+net_err_t sock_wait_enter (sock_wait_t * wait, int tmo);
+void sock_wait_leave (sock_wait_t * wait, net_err_t err);
+
 
 
 struct _sock_t;
@@ -40,7 +58,9 @@ typedef struct _sock_t {
     int err;						// err code of last operation
     int rcv_tmo;					// ms
     int snd_tmo;					// ms
-
+    sock_wait_t * snd_wait;
+    sock_wait_t * rcv_wait;
+    sock_wait_t * conn_wait;
     list_node_t node;
 }sock_t;
 
@@ -68,6 +88,9 @@ typedef struct _sock_create_t {
  */
 typedef struct _sock_req_t {
     int sockfd;
+    // the responder might want the caller to wait for some events
+    sock_wait_t * wait;
+    int wait_tmo;
     union {
         sock_create_t create;
         sock_data_t data;
@@ -76,6 +99,7 @@ typedef struct _sock_req_t {
 
 net_err_t sock_create_req_in(func_msg_t* api_msg);
 net_err_t sock_sendto_req_in (func_msg_t * api_msg);
+net_err_t sock_recvfrom_req_in(func_msg_t * api_msg);
 net_err_t sock_init(sock_t* sock, int family, int protocol, const sock_ops_t * ops);
 net_err_t socket_init(void);
 

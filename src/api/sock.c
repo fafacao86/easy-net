@@ -100,6 +100,9 @@ net_err_t sock_init(sock_t* sock, int family, int protocol, const sock_ops_t * o
     sock->rcv_tmo = 0;
     sock->snd_tmo = 0;
     list_node_init(&sock->node);
+    sock->conn_wait = (sock_wait_t *)0;
+    sock->snd_wait = (sock_wait_t *)0;
+    sock->rcv_wait = (sock_wait_t *)0;
     return NET_OK;
 }
 
@@ -119,6 +122,80 @@ net_err_t sock_sendto_req_in (func_msg_t * api_msg) {
     }
     net_err_t err = sock->ops->sendto(sock, data->buf, data->len, data->flags,
                                       data->addr, *data->addr_len, &req->data.comp_len);
+    if (err == NET_ERR_NEED_WAIT) {
+        if (sock->snd_wait) {
+            sock_wait_add(sock->snd_wait, sock->snd_tmo, req);
+        }
+    }
     return err;
+}
+
+
+net_err_t sock_recvfrom_req_in(func_msg_t * api_msg) {
+    sock_req_t * req = (sock_req_t *)api_msg->param;
+    x_socket_t* s = get_socket(req->sockfd);
+    if (!s) {
+        log_error(LOG_SOCKET, "param error: socket = %d.", s);
+        return NET_ERR_PARAM;
+    }
+    sock_t* sock = s->sock;
+    sock_data_t * data = (sock_data_t *)&req->data;
+    if (!sock->ops->recvfrom) {
+        log_error(LOG_SOCKET, "this function is not implemented");
+        return NET_ERR_NOT_SUPPORT;
+    }
+    net_err_t err = sock->ops->recvfrom(sock, data->buf, data->len, data->flags,
+                                        data->addr, data->addr_len, &req->data.comp_len);
+    if (err == NET_ERR_NEED_WAIT) {
+        if (sock->rcv_wait) {
+            sock_wait_add(sock->rcv_wait, sock->rcv_tmo, req);
+        }
+    }
+    return err;
+}
+
+
+
+net_err_t sock_wait_init (sock_wait_t * wait) {
+    wait->waiting = 0;
+    wait->sem = sys_sem_create(0);
+    return wait->sem == SYS_SEM_INVALID ? NET_ERR_SYS : NET_OK;
+}
+
+void sock_wait_destroy (sock_wait_t * wait) {
+    if (wait->sem != SYS_SEM_INVALID) {
+        sys_sem_free(wait->sem);
+    }
+}
+
+/**
+ * this is will be actively called by api consumer thread,
+ * after it received a response with a wait in it
+ */
+net_err_t sock_wait_enter (sock_wait_t * wait, int tmo) {
+    if (sys_sem_wait(wait->sem, tmo) < 0) {
+        return NET_ERR_TIMEOUT;
+    }
+    return wait->err;
+}
+
+/**
+ * called by handler thread, if it wants the api consumer to wait for a response
+ */
+void sock_wait_add (sock_wait_t * wait, int tmo, struct _sock_req_t * req) {
+    req->wait = wait;
+    req->wait_tmo = tmo;
+    wait->waiting++;
+}
+
+/**
+ * called by handler thread, if it wants the api consumer to wake up
+ */
+void sock_wait_leave (sock_wait_t * wait, net_err_t err) {
+    if (wait->waiting > 0) {
+        wait->waiting--;
+        wait->err = err;
+        sys_sem_notify(wait->sem);
+    }
 }
 

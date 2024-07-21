@@ -2,6 +2,7 @@
 #define EASY_NET_NET_ERRORS_H
 
 typedef enum _net_err_t {
+    NET_ERR_NEED_WAIT = 1, // Need to wait for resource
     NET_OK = 0,    // No error
     NET_ERR_SYS = -1,   // System error
     NET_ERR_FULL = -2,  // Queue is full

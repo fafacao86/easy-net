@@ -56,6 +56,14 @@ static net_err_t raw_sendto (struct _sock_t * sock, const void* buf, size_t len,
     return err;
 }
 
+static net_err_t raw_recvfrom (struct _sock_t* sock, void* buf, size_t len, int flags,
+                               struct x_sockaddr* src, x_socklen_t * addr_len, ssize_t * result_len) {
+    log_info(LOG_RAW, "raw recvfrom\n");
+    raw_t * raw = (raw_t *)sock;
+
+    *result_len = 0;
+    return NET_ERR_NEED_WAIT;
+}
 
 /**
  * create a raw socket.
@@ -63,6 +71,7 @@ static net_err_t raw_sendto (struct _sock_t * sock, const void* buf, size_t len,
 sock_t* raw_create(int family, int protocol) {
     static const sock_ops_t raw_ops = {
             .sendto = raw_sendto,
+            .recvfrom = raw_recvfrom
     };
     raw_t* raw = memory_pool_alloc(&raw_mblock, -1);
     if (!raw) {
@@ -76,6 +85,10 @@ sock_t* raw_create(int family, int protocol) {
         memory_pool_free(&raw_mblock, raw);
         return (sock_t*)0;
     }
+    raw->base.rcv_wait = &raw->rcv_wait;
+
     list_insert_last(&raw_list, &raw->base.node);
+
+
     return (sock_t *)raw;
 }
