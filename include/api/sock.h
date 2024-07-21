@@ -4,7 +4,7 @@
 #include "msg_handler.h"
 
 /**
- * for socket type specific operations
+ * for socket type specific operations, polymorphism
  * */
 #define SOCK_WAIT_READ         (1 << 0)
 #define SOCK_WAIT_WRITE        (1 << 1)
@@ -20,7 +20,7 @@ typedef struct _sock_wait_t {
 
 net_err_t sock_wait_init (sock_wait_t * wait);
 void sock_wait_destroy (sock_wait_t * wait);
-void sock_wait_add (sock_wait_t * wait, int tmo, struct _sock_req_t * req);
+void sock_wait_add (sock_wait_t * wait, int tmo, struct _sock_req_t * req) ;
 net_err_t sock_wait_enter (sock_wait_t * wait, int tmo);
 void sock_wait_leave (sock_wait_t * wait, net_err_t err);
 
@@ -83,6 +83,16 @@ typedef struct _sock_create_t {
     int type;
 }sock_create_t;
 
+
+typedef struct _sock_opt_t {
+    int level;
+    int optname;
+    const char * optval;
+    int optlen;
+}sock_opt_t;
+
+
+
 /**
  * API Request structure
  */
@@ -94,6 +104,7 @@ typedef struct _sock_req_t {
     union {
         sock_create_t create;
         sock_data_t data;
+        sock_opt_t opt;
     };
 }sock_req_t;
 
@@ -102,6 +113,9 @@ net_err_t sock_sendto_req_in (func_msg_t * api_msg);
 net_err_t sock_recvfrom_req_in(func_msg_t * api_msg);
 net_err_t sock_init(sock_t* sock, int family, int protocol, const sock_ops_t * ops);
 net_err_t socket_init(void);
+void sock_uninit (sock_t * sock);
+net_err_t sock_setsockopt_req_in(func_msg_t * api_msg);
+net_err_t sock_setopt(struct _sock_t* s,  int level, int optname, const char * optval, int optlen);
 
 
 #endif //EASY_NET_SOCK_H

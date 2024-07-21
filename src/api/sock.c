@@ -107,6 +107,20 @@ net_err_t sock_init(sock_t* sock, int family, int protocol, const sock_ops_t * o
 }
 
 
+void sock_uninit (sock_t * sock){
+    if (sock->snd_wait) {
+        sock_wait_destroy(sock->snd_wait);
+    }
+    if (sock->rcv_wait) {
+        sock_wait_destroy(sock->rcv_wait);
+    }
+    if (sock->conn_wait) {
+        sock_wait_destroy(sock->conn_wait);
+    }
+}
+
+
+
 net_err_t sock_sendto_req_in (func_msg_t * api_msg) {
     sock_req_t * req = (sock_req_t *)api_msg->param;
     x_socket_t* s = get_socket(req->sockfd);
@@ -199,3 +213,48 @@ void sock_wait_leave (sock_wait_t * wait, net_err_t err) {
     }
 }
 
+
+net_err_t sock_setsockopt_req_in(func_msg_t * api_msg) {
+    sock_req_t * req = (sock_req_t *)api_msg->param;
+    x_socket_t* s = get_socket(req->sockfd);
+    if (!s) {
+        log_error(LOG_SOCKET, "param error: socket = %d.", s);
+        return NET_ERR_PARAM;
+    }
+    sock_t* sock = s->sock;
+    sock_opt_t * opt = (sock_opt_t *)&req->opt;
+    return sock->ops->setopt(sock, opt->level, opt->optname, opt->optval, opt->optlen);
+}
+
+
+net_err_t sock_setopt(struct _sock_t* sock,  int level, int optname, const char * optval, int optlen) {
+    // socket options only support SOL_SOCKET level
+    if (level != SOL_SOCKET) {
+        log_error(LOG_SOCKET, "unknow level: %d", level);
+        return NET_ERR_NOT_SUPPORT;
+    }
+
+    switch (optname) {
+        case SO_RCVTIMEO:
+        case SO_SNDTIMEO: {
+            if (optlen != sizeof(struct x_timeval)) {
+                log_error(LOG_SOCKET, "time size error");
+                return NET_ERR_PARAM;
+            }
+            struct x_timeval * time = (struct x_timeval *)optval;
+            int time_ms = time->tv_sec * 1000 + time->tv_usec / 1000;
+            if (optname == SO_RCVTIMEO) {
+                sock->rcv_tmo = time_ms;
+                return NET_OK;
+            } else if (optname == SO_SNDTIMEO) {
+                sock->snd_tmo = time_ms;
+                return NET_OK;
+            } else {
+                return NET_ERR_PARAM;
+            }
+        }
+        default:
+            break;
+    }
+    return NET_ERR_NOT_SUPPORT;
+}

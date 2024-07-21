@@ -54,14 +54,14 @@ void ping_run(ping_t * ping, const char* dest, int count, int size, int interval
     connect(sk, (const struct sockaddr*)&addr, sizeof(struct sockaddr_in));
 #endif
 
-#if defined(SYS_PLAT_WINDOWS)
-    int tmo = 3000;
-#else
+//#if defined(SYS_PLAT_WINDOWS)
+//    int tmo = 3000;
+//#else
     struct timeval tmo;
     tmo.tv_sec = 5;
     tmo.tv_usec = 0;
-#endif
-    //setsockopt(sk, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tmo, sizeof(tmo));
+//#endif
+    setsockopt(sk, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tmo, sizeof(tmo));
 
     // Unix Network Programming, put time in request packet data section
     size -= sizeof(clock_t);

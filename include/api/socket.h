@@ -12,6 +12,7 @@
 int x_socket(int family, int type, int protocol);
 ssize_t x_sendto(int sid, const void* buf, size_t len, int flags, const struct x_sockaddr* dest, x_socklen_t dest_len);
 ssize_t x_recvfrom(int sid, void* buf, size_t len, int flags, struct x_sockaddr* src, x_socklen_t* src_len);
+int x_setsockopt(int sockfd, int level, int optname, const char * optval, int optlen);
 
 
 #undef AF_INET
@@ -25,6 +26,15 @@ ssize_t x_recvfrom(int sid, void* buf, size_t len, int flags, struct x_sockaddr*
 
 #undef INADDR_ANY
 #define INADDR_ANY              0               // all zeros for IPv4 address
+// sockopt level
+#undef SOL_SOCKET
+#define SOL_SOCKET              0
+
+// sockopt name
+#undef SO_RCVTIMEO
+#define SO_RCVTIMEO             1            // ms
+#undef SO_SNDTIMEO
+#define SO_SNDTIMEO             2            // ms
 
 
 #pragma pack(1)
@@ -71,6 +81,11 @@ struct x_sockaddr_in {
     char sin_zero[8];               // padding to align to 16 bytes
 };
 #pragma pack()
+
+struct x_timeval {
+    int tv_sec;             // seconds
+    int tv_usec;            // microseconds
+};
 
 
 typedef struct _socket_t {

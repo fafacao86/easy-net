@@ -71,7 +71,8 @@ static net_err_t raw_recvfrom (struct _sock_t* sock, void* buf, size_t len, int 
 sock_t* raw_create(int family, int protocol) {
     static const sock_ops_t raw_ops = {
             .sendto = raw_sendto,
-            .recvfrom = raw_recvfrom
+            .recvfrom = raw_recvfrom,
+            .setopt = sock_setopt,
     };
     raw_t* raw = memory_pool_alloc(&raw_mblock, -1);
     if (!raw) {
@@ -86,9 +87,13 @@ sock_t* raw_create(int family, int protocol) {
         return (sock_t*)0;
     }
     raw->base.rcv_wait = &raw->rcv_wait;
-
+    if (sock_wait_init(raw->base.rcv_wait) < 0) {
+        log_error(LOG_RAW, "create rcv.wait failed");
+        goto create_failed;
+    }
     list_insert_last(&raw_list, &raw->base.node);
-
-
     return (sock_t *)raw;
+create_failed:
+    sock_uninit((sock_t *)raw);
+    return (sock_t *)0;
 }

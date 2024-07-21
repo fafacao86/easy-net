@@ -92,3 +92,26 @@ ssize_t x_recvfrom(int sockfd, void* buf, size_t size, int flags, struct x_socka
         }
     }
 }
+
+
+int x_setsockopt(int sockfd, int level, int optname, const char * optval, int optlen) {
+    if (!optval || !optlen) {
+        log_error(LOG_SOCKET, "param error", NET_ERR_PARAM);
+        return -1;
+    }
+
+    sock_req_t req;
+    req.wait = 0;
+    req.sockfd = sockfd;
+    req.opt.level = level;
+    req.opt.optname = optname;
+    req.opt.optval = optval;
+    req.opt.optlen = optlen;
+    net_err_t err = exmsg_func_exec(sock_setsockopt_req_in, &req);
+    if (err < 0) {
+        log_error(LOG_SOCKET, "setopt:", err);
+        return -1;
+    }
+
+    return 0;
+}
