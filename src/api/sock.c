@@ -277,3 +277,17 @@ void sock_wakeup (sock_t * sock, int type, int err) {
     }
     sock->err = err;
 }
+
+
+net_err_t sock_close_req_in (func_msg_t* api_msg) {
+    sock_req_t * req = (sock_req_t *)api_msg->param;
+    x_socket_t* s = get_socket(req->sockfd);
+    if (!s) {
+        log_error(LOG_SOCKET, "param error: socket = %d.", s);
+        return NET_ERR_PARAM;
+    }
+    sock_t* sock = s->sock;
+    net_err_t err = sock->ops->close(sock);
+    socket_free(s);
+    return err;
+}

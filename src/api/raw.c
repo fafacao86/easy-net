@@ -99,6 +99,20 @@ static net_err_t raw_recvfrom (struct _sock_t* sock, void* buf, size_t len, int 
     return NET_OK;
 }
 
+net_err_t raw_close(sock_t * sock) {
+    raw_t * raw = (raw_t *)sock;
+    list_remove(&raw_list, &sock->node);
+    list_node_t* node;
+    while ((node = list_remove_first(&raw->recv_list))) {
+        packet_t* buf = list_entry(node, packet_t, node);
+        packet_free(buf);
+    }
+    sock_uninit(sock);
+    memory_pool_free(&raw_mblock, sock);
+    return NET_OK;
+}
+
+
 /**
  * create a raw socket.
  */
@@ -107,6 +121,7 @@ sock_t* raw_create(int family, int protocol) {
             .sendto = raw_sendto,
             .recvfrom = raw_recvfrom,
             .setopt = sock_setopt,
+            .close = raw_close,
     };
     raw_t* raw = memory_pool_alloc(&raw_mblock, -1);
     if (!raw) {

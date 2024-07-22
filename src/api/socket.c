@@ -120,3 +120,16 @@ int x_setsockopt(int sockfd, int level, int optname, const char * optval, int op
 
     return 0;
 }
+
+int x_close(int sockfd) {
+    sock_req_t req;
+    req.wait = 0;
+    req.sockfd = sockfd;
+    net_err_t err = exmsg_func_exec(sock_close_req_in, &req);
+    if (err < 0) {
+        log_error(LOG_SOCKET, "try close failed %d, force delete.", err);
+        return -1;
+    }
+
+    return 0;
+}

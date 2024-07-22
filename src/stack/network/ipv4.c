@@ -12,9 +12,14 @@ static uint16_t packet_id = 0;                  // incremental id for ipv4 packe
 
 // for fragmentation
 static ip_frag_t frag_array[IP_FRAGS_MAX_NR];
-static memory_pool_t frag_mblock;                    // memory pool for ip_frag_t
+static memory_pool_t frag_pool;                    // memory pool for ip_frag_t
 static list_t frag_list;                        // fragmented packets list
 static net_timer_t frag_timer;
+
+static list_t rt_list;                          // routing table list
+static memory_pool_t rt_mblock;
+static rentry_t rt_table[IP_RTABLE_SIZE];
+
 
 static inline uint16_t get_frag_start(ipv4_pkt_t* pkt) {
     return pkt->hdr.offset * 8;
@@ -101,7 +106,7 @@ static void frag_free_buf_list (ip_frag_t * frag) {
 static void frag_free (ip_frag_t * frag) {
     frag_free_buf_list(frag);
     list_remove(&frag_list, &frag->node);
-    memory_pool_free(&frag_mblock, frag);
+    memory_pool_free(&frag_pool, frag);
 }
 
 
@@ -109,7 +114,7 @@ static void frag_free (ip_frag_t * frag) {
  * allocate a fragment packet, when there is no free one, reuse the oldest one
  */
 static ip_frag_t * frag_alloc(void) {
-    ip_frag_t * frag = memory_pool_alloc(&frag_mblock, -1);
+    ip_frag_t * frag = memory_pool_alloc(&frag_pool, -1);
     if (!frag) {
         list_node_t* node = list_remove_last(&frag_list);
         frag = list_entry(node, ip_frag_t, node);
@@ -254,7 +259,7 @@ static void frag_tmo(net_timer_t* timer, void * arg) {
 
 static net_err_t frag_init(void) {
     init_list(&frag_list);
-    memory_pool_init(&frag_mblock, frag_array, sizeof(ip_frag_t), IP_FRAGS_MAX_NR, LOCKER_NONE);
+    memory_pool_init(&frag_pool, frag_array, sizeof(ip_frag_t), IP_FRAGS_MAX_NR, LOCKER_NONE);
     net_err_t err = net_timer_add(&frag_timer, "frag timer", frag_tmo, (void *)0,
                                   IP_FRAG_SCAN_PERIOD * 1000, NET_TIMER_RELOAD);
     if (err < 0) {
@@ -264,6 +269,13 @@ static net_err_t frag_init(void) {
     return NET_OK;
 }
 
+void rt_init(void) {
+    init_list(&rt_list);
+    memory_pool_init(&rt_mblock, rt_table, sizeof(rentry_t), IP_RTABLE_SIZE, LOCKER_NONE);
+}
+
+
+
 net_err_t ipv4_init(void) {
     log_info(LOG_IP,"init ip\n");
     net_err_t err = frag_init();
@@ -271,6 +283,7 @@ net_err_t ipv4_init(void) {
         log_error(LOG_IP,"failed. err = %d", err);
         return err;
     }
+    rt_init();
     log_info(LOG_IP,"done.");
     return NET_OK;
 }

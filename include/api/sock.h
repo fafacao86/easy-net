@@ -111,6 +111,7 @@ typedef struct _sock_req_t {
 net_err_t sock_create_req_in(func_msg_t* api_msg);
 net_err_t sock_sendto_req_in (func_msg_t * api_msg);
 net_err_t sock_recvfrom_req_in(func_msg_t * api_msg);
+net_err_t sock_close_req_in (func_msg_t* api_msg);
 net_err_t sock_init(sock_t* sock, int family, int protocol, const sock_ops_t * ops);
 net_err_t socket_init(void);
 void sock_uninit (sock_t * sock);

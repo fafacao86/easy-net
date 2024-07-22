@@ -76,6 +76,21 @@ typedef struct _ip_frag_t {
     list_node_t node;
 }ip_frag_t;
 
+
+/**
+ * routing table entry
+ * */
+typedef struct _rentry_t {
+    ipaddr_t net;
+    ipaddr_t mask;
+    int mask_1_cnt;         // count of 1s in the mask
+    ipaddr_t next_hop;       // ip address of the next hop
+    netif_t* netif;         // network interface to reach the next hop
+    list_node_t node;
+}rentry_t;
+
+void rt_init(void);
+
 net_err_t ipv4_init(void);
 net_err_t ipv4_in(netif_t * netif, packet_t *buf);
 static inline int ipv4_hdr_size(ipv4_pkt_t* pkt) {
