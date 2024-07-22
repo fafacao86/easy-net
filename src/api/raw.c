@@ -43,7 +43,7 @@ static net_err_t raw_sendto (struct _sock_t * sock, const void* buf, size_t len,
         log_error(LOG_RAW, "copy data error");
         goto end_sendto;
     }
-    err = ipv4_out(sock->protocol, &dest_ip, &netif_get_default()->ipaddr, pktbuf);
+    err = ipv4_out(sock->protocol, &dest_ip, &sock->local_ip, pktbuf);
     if (err < 0) {
         log_error(LOG_RAW, "send error");
         goto end_sendto;

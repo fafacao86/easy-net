@@ -1,4 +1,4 @@
-#include "net_errors.h"
+﻿#include "net_errors.h"
 #include "ipv4.h"
 #include "log.h"
 #include "utils.h"
@@ -519,9 +519,12 @@ net_err_t ipv4_in(netif_t* netif, packet_t* buf) {
     return err;
 }
 
-
+/**
+ * in the ip header, dest_ip ius the parameter dest
+ * and netif_out, we use next
+ * */
 static net_err_t ip_frag_out(uint8_t protocol, ipaddr_t* dest,
-                             ipaddr_t* src, packet_t* buf, netif_t * netif) {
+                             ipaddr_t* src, packet_t* buf,  ipaddr_t * next, netif_t * netif) {
     log_info(LOG_IP,"frag send an ip packet.\n");
     packet_reset_pos(buf);
     int offset = 0;
@@ -554,7 +557,11 @@ static net_err_t ip_frag_out(uint8_t protocol, ipaddr_t* dest,
         pkt->hdr.ttl = NET_IP_DEF_TTL;
         pkt->hdr.protocol = protocol;
         pkt->hdr.hdr_checksum = 0;
-        ipaddr_to_buf(src, pkt->hdr.src_ip);
+        if (!src || ipaddr_is_any(src)) {
+            ipaddr_to_buf(&netif->ipaddr, pkt->hdr.src_ip);
+        } else {
+            ipaddr_to_buf(src, pkt->hdr.src_ip);
+        }
         ipaddr_to_buf(dest, pkt->hdr.dest_ip);
         pkt->hdr.offset = offset >> 3;      // the unit is 8 bytes
         pkt->hdr.more = total > curr_size;
@@ -574,7 +581,7 @@ static net_err_t ip_frag_out(uint8_t protocol, ipaddr_t* dest,
         packet_seek(dest_buf, 0);
         pkt->hdr.hdr_checksum = packet_checksum16(dest_buf, ipv4_hdr_size(pkt), 0, 1);
         display_ip_packet((ipv4_pkt_t*)pkt);
-        err = netif_out(netif, dest, dest_buf);
+        err = netif_out(netif, next, dest_buf);
         if (err < 0) {
             log_warning(LOG_IP,"ip send error. err = %d\n", err);
             packet_free(dest_buf);
@@ -588,11 +595,28 @@ static net_err_t ip_frag_out(uint8_t protocol, ipaddr_t* dest,
     return NET_OK;
 }
 
+/**
+ * the src can be null, if it is null,
+ * we use the ip address of the netif matched in the routing table as the source ip
+ * */
 net_err_t ipv4_out(uint8_t protocol, ipaddr_t* dest, ipaddr_t * src, packet_t* packet) {
     log_info(LOG_IP,"send an ip packet.\n");
-    netif_t * netif = netif_get_default();
-    if (netif->mtu && ((packet->total_size + sizeof(ipv4_hdr_t)) > netif->mtu)) {
-        net_err_t err = ip_frag_out(protocol, dest, src, packet, netif);
+    rentry_t* rt = rt_find(dest);
+    if (rt == (rentry_t *)0) {
+        log_error(LOG_IP,"send failed. no route.");
+        return NET_ERR_UNREACH;
+    }
+    ipaddr_t next_hop;
+    if (ipaddr_is_any(&rt->next_hop)) {
+        // if the dest is in the LAN, that means we only need one direct hop, make the next hop the dest itself
+        ipaddr_copy(&next_hop, dest);
+    } else {
+        // if the dest is not in the LAN, we need to use the next hop provided by the routing table
+        ipaddr_copy(&next_hop, &rt->next_hop);
+    }
+    //netif_t * netif = netif_get_default();
+    if (rt->netif->mtu && ((packet->total_size + sizeof(ipv4_hdr_t)) > rt->netif->mtu)) {
+        net_err_t err = ip_frag_out(protocol, dest, src, packet, &next_hop, rt->netif);
         if (err < 0) {
             log_warning(LOG_IP, "send ip frag packet failed. error = %d\n", err);
             return err;
@@ -614,15 +638,18 @@ net_err_t ipv4_out(uint8_t protocol, ipaddr_t* dest, ipaddr_t * src, packet_t* p
     ip_datagram->hdr.ttl = NET_IP_DEF_TTL;
     ip_datagram->hdr.protocol = protocol;
     ip_datagram->hdr.hdr_checksum = 0;
-    ipaddr_to_buf(src, ip_datagram->hdr.src_ip);
+    if (!src || ipaddr_is_any(src)) {
+        ipaddr_to_buf(&rt->netif->ipaddr, ip_datagram->hdr.src_ip);
+    } else {
+        ipaddr_to_buf(src, ip_datagram->hdr.src_ip);
+    }
     ipaddr_to_buf(dest, ip_datagram->hdr.dest_ip);
-
     display_ip_packet(ip_datagram);
     // convert the fields in header to network byte order
     iphdr_htons(ip_datagram);
     packet_reset_pos(packet);
     ip_datagram->hdr.hdr_checksum = packet_checksum16(packet, ipv4_hdr_size(ip_datagram), 0, 1);
-    err = netif_out(netif_get_default(), dest, packet);
+    err = netif_out(rt->netif, &next_hop, packet);
     if (err < 0) {
         log_warning(LOG_IP, "send ip packet failed. error = %d\n", err);
         return err;

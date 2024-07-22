@@ -42,7 +42,8 @@ int main (void) {
     //test_msg_handler();
     //test_packet_buffer();
     //test_net_api();
-
+    ping_t p;
+    ping_run(&p, friend0_ip, 4, 1000, 1000);
     char cmd[32], param[32];
     while (1) {
         show_help();
