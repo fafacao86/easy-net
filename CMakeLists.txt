@@ -21,7 +21,11 @@ include_directories(
 
 file(GLOB_RECURSE SOURCE_LIST "src/*.c" "src/*.h" "test/*.c" "test/*.h" "include/*.h")
 
-add_executable(${PROJECT_NAME} ${SOURCE_LIST})
+add_executable(${PROJECT_NAME} ${SOURCE_LIST}
+        src/stack/app/echo/udp_echo_client.h
+        src/stack/app/echo/udp_echo_client.c
+        src/stack/app/echo/udp_echo_server.h
+        src/stack/app/echo/udp_echo_server.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

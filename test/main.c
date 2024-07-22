@@ -4,6 +4,8 @@
 #include "log.h"
 #include "testcase.h"
 #include "src/stack/app/ping/ping.h"
+#include "src/stack/app/echo/udp_echo_client.h"
+#include "src/stack/app/echo/udp_echo_server.h"
 
 pcap_data_t netdev0_data = { .ip = netdev0_phy_ip, .hwaddr = netdev0_hwaddr };
 static netif_t* netif = NULL;
@@ -42,8 +44,8 @@ int main (void) {
     //test_msg_handler();
     //test_packet_buffer();
     //test_net_api();
-    ping_t p;
-    ping_run(&p, friend0_ip, 4, 1000, 1000);
+    udp_echo_server_start(2000);
+    //udp_echo_client_start(friend0_ip, 1000);
     char cmd[32], param[32];
     while (1) {
         show_help();
