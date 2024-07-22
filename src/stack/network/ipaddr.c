@@ -118,3 +118,17 @@ int ipaddr_is_match(const ipaddr_t* dest, const ipaddr_t* src, const ipaddr_t * 
 int ipaddr_is_any(const ipaddr_t* ip) {
     return ip->q_addr == 0;
 }
+
+// can be optimized using brian kernighan's algorithm
+int ipaddr_1_cnt(ipaddr_t* ip) {
+    int cnt = 0;
+    uint32_t addr = ip->q_addr;
+    while (addr) {
+        if (addr & 0x1) {
+            cnt++;
+        }
+
+        addr >>= 1;
+    }
+    return cnt;
+}

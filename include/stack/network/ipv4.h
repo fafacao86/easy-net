@@ -83,13 +83,16 @@ typedef struct _ip_frag_t {
 typedef struct _rentry_t {
     ipaddr_t net;
     ipaddr_t mask;
-    int mask_1_cnt;         // count of 1s in the mask
+    int mask_1_cnt;         // count of 1s in the mask, used for longest prefix match
     ipaddr_t next_hop;       // ip address of the next hop
     netif_t* netif;         // network interface to reach the next hop
     list_node_t node;
 }rentry_t;
 
 void rt_init(void);
+void rt_add(ipaddr_t* net, ipaddr_t* mask, ipaddr_t* next_hop, netif_t* netif);
+void rt_remove(ipaddr_t* net, ipaddr_t* mask);
+rentry_t* rt_find(ipaddr_t * ip);
 
 net_err_t ipv4_init(void);
 net_err_t ipv4_in(netif_t * netif, packet_t *buf);

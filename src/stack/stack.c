@@ -24,7 +24,7 @@ net_err_t init_stack(void) {
     icmpv4_init();
     init_msg_handler();
     socket_init();
-    //loop_init();
+    loop_init();
     return NET_OK;
 }
 

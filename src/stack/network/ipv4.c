@@ -38,6 +38,25 @@ static inline uint16_t get_frag_end(ipv4_pkt_t* pkt) {
 
 
 #if LOG_DISP_ENABLED(LOG_IP)
+void rt_nlist_display(void) {
+        plat_printf("Route table:\n");
+
+        for (int i = 0, idx = 0; i < IP_RTABLE_SIZE; i++) {
+            rentry_t* entry = rt_table + i;
+            if (entry->netif) {
+                plat_printf("%d: ", idx++);
+                dbg_dump_ip(LOG_IP, "net:", &entry->net);
+                plat_printf("\t");
+                dbg_dump_ip(LOG_IP, "mask:", &entry->mask);
+                plat_printf("\t");
+                dbg_dump_ip(LOG_IP, "next_hop:", &entry->next_hop);
+                plat_printf("\t");
+                plat_printf("if: %s", entry->netif->name);
+                plat_printf("\n");
+            }
+        }
+}
+
 static void display_ip_frags(void) {
     list_node_t *f_node, * p_node;
     int f_index = 0, p_index = 0;
@@ -86,6 +105,7 @@ static void display_ip_packet(ipv4_pkt_t* pkt) {
 #else
 #define display_ip_packet(pkt)
 #define display_ip_frags()
+#define rt_nlist_display()
 #endif
 
 /**
@@ -272,6 +292,57 @@ static net_err_t frag_init(void) {
 void rt_init(void) {
     init_list(&rt_list);
     memory_pool_init(&rt_mblock, rt_table, sizeof(rentry_t), IP_RTABLE_SIZE, LOCKER_NONE);
+}
+
+
+void rt_add(ipaddr_t * net, ipaddr_t* mask, ipaddr_t* next_hop, netif_t* netif) {
+    rentry_t* entry = (rentry_t*)memory_pool_alloc(&rt_mblock, -1);
+    if (!entry) {
+        log_warning(LOG_IP, "alloc rt entry failed.");
+        return;
+    }
+    ipaddr_copy(&entry->net, net);
+    ipaddr_copy(&entry->mask, mask);
+    ipaddr_copy(&entry->next_hop, next_hop);
+    entry->mask_1_cnt = ipaddr_1_cnt(mask);
+    entry->netif = netif;
+    list_insert_last(&rt_list, &entry->node);
+    rt_nlist_display();
+}
+
+
+void rt_remove(ipaddr_t * net, ipaddr_t * mask) {
+    list_node_t * node;
+    list_for_each(node, &rt_list) {
+        rentry_t* entry = list_entry(node, rentry_t, node);
+        if (ipaddr_is_equal(&entry->net, net) && ipaddr_is_equal(&entry->mask, mask)) {
+            list_remove(&rt_list, node);
+            log_info(LOG_IP, "remove a route info:");
+            dbg_dump_ip(LOG_IP, "net:", net);
+            dbg_dump_ip(LOG_IP, "mask:", mask);
+            plat_printf("\n");
+            return;
+        }
+    }
+}
+
+
+rentry_t* rt_find(ipaddr_t * ip) {
+    rentry_t* e = (rentry_t*)0;
+    list_node_t* node;
+    list_for_each(node, &rt_list) {
+        rentry_t* entry = list_entry(node, rentry_t, node);
+        // ip & mask != entry->net就跳过
+        ipaddr_t net = ipaddr_get_net(ip, &entry->mask);
+        if (!ipaddr_is_equal(&net, &entry->net)) {
+            continue;
+        }
+        // if the current matched entry has a longer mask, update it
+        if (!e || (e->mask_1_cnt < entry->mask_1_cnt)) {
+            e = entry;
+        }
+    }
+    return e;
 }
 
 

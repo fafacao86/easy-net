@@ -4,6 +4,7 @@
 #include "log.h"
 #include "protocols.h"
 #include "ether.h"
+#include "ipv4.h"
 
 static netif_t netif_buffer[NETIF_DEV_CNT];     // number of network interfaces
 static memory_pool_t netif_pool;                   // memory pool for netif
@@ -166,7 +167,10 @@ net_err_t netif_set_hwaddr(netif_t* netif, const uint8_t* hwaddr, int len) {
     return NET_OK;
 }
 
-
+/**
+ * set status to be active
+ * and add route for the netif LAN
+ * */
 net_err_t netif_set_active(netif_t* netif) {
     if (netif->state != NETIF_OPENED) {
         log_error(LOG_NETIF, "netif is not opened");
@@ -180,6 +184,13 @@ net_err_t netif_set_active(netif_t* netif) {
             return err;
         }
     }
+
+    // add route for the netif LAN
+    ipaddr_t ip = ipaddr_get_net(&netif->ipaddr, &netif->netmask);
+    rt_add(&ip, &netif->netmask, ipaddr_get_any(), netif);
+    ipaddr_from_str(&ip, "255.255.255.255");
+    rt_add(&netif->ipaddr, &ip, ipaddr_get_any(), netif);
+
     // default netif can not be loopback
     if (!netif_default && (netif->type != NETIF_TYPE_LOOP)) {
         netif_set_default(netif);
@@ -207,7 +218,10 @@ net_err_t netif_set_deactive(netif_t* netif) {
     while ((packet = fixed_queue_recv(&netif->out_q, -1))) {
         packet_free(packet);
     }
-
+    ipaddr_t ip = ipaddr_get_net(&netif->ipaddr, &netif->netmask);
+    rt_remove(&ip, &netif->netmask);
+    ipaddr_from_str(&ip, "255.255.255.255");
+    rt_remove(&netif->ipaddr, &netif->netmask);
     if (netif_default == netif) {
         netif_default = (netif_t*)0;
     }
@@ -238,6 +252,13 @@ net_err_t netif_close(netif_t* netif) {
 
 
 void netif_set_default(netif_t* netif) {
+    // add gateway of the default netif to default route
+    if (!ipaddr_is_any(&netif->gateway)) {
+        if (netif_default) {
+            rt_remove(ipaddr_get_any(), ipaddr_get_any());
+        }
+        rt_add(ipaddr_get_any(), ipaddr_get_any(), &netif->gateway, netif);
+    }
     netif_default = netif;
 }
 
