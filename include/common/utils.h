@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <easy_net_config.h>
 #include "net_errors.h"
+#include "packet_buffer.h"
 
 /**
  * swap the bit pattern of a 16-bit value
@@ -44,5 +45,6 @@ uint32_t swap_u32(uint32_t v);
 
 net_err_t utils_init(void);
 uint16_t checksum16(uint32_t offset, void* buf, uint16_t len, uint32_t pre_sum, int complement);
+uint16_t checksum_peso(const uint8_t* src_ip, const uint8_t* dest_ip, uint8_t protocol, packet_t* buf);
 
 #endif //EASY_NET_UTILS_H

@@ -2,6 +2,8 @@
 #include "memory_pool.h"
 #include "log.h"
 #include "utils.h"
+#include "ipv4.h"
+#include "protocols.h"
 
 static udp_t udp_tbl[UDP_MAX_NR];
 static memory_pool_t udp_mblock;
@@ -45,7 +47,8 @@ static net_err_t alloc_port(sock_t* sock) {
 
 
 /**
- * API consumer may not specify the local port, we need to allocate one.
+ * API consumer may not specify the local port, we need to allocate one,
+ * the local ip address may also be null, we need to lookup route table
  * */
 net_err_t udp_sendto (struct _sock_t * sock, const void* buf, size_t len, int flags, const struct x_sockaddr* dest,
                       x_socklen_t dest_len, ssize_t * result_len) {
@@ -80,7 +83,11 @@ net_err_t udp_sendto (struct _sock_t * sock, const void* buf, size_t len, int fl
         log_error(LOG_UDP, "copy data error");
         goto end_sendto;
     }
-
+    err = udp_out(&dest_ip, dport, &sock->local_ip, sock->local_port, pktbuf);
+    if (err < 0) {
+        log_error(LOG_UDP, "send error");
+        goto end_sendto;
+    }
 
     if (result_len) {
         *result_len = (ssize_t)len;
@@ -122,4 +129,40 @@ sock_t* udp_create(int family, int protocol) {
 create_failed:
     sock_uninit((sock_t *)udp);
     return (sock_t *)0;
+}
+
+
+net_err_t udp_out(ipaddr_t * dest, uint16_t dport, ipaddr_t * src, uint16_t sport, packet_t * buf) {
+    log_info(LOG_UDP, "send an udp packet!");
+
+    // if the src is null, use the route table to find the src ip of interface
+    if (!src || ipaddr_is_any(src)) {
+        rentry_t* rt = rt_find(dest);
+        if (rt == (rentry_t*)0) {
+            dbg_dump_ip(LOG_UDP, "no route to dest: ", dest);
+            return NET_ERR_UNREACH;
+        }
+        src = &rt->netif->ipaddr;
+    }
+    net_err_t err = packet_add_header(buf, sizeof(udp_hdr_t), 1);
+    if (err < 0) {
+        log_error(LOG_UDP, "add header failed. err = %d", err);
+        return NET_ERR_SIZE;
+    }
+
+    udp_hdr_t * udp_hdr = (udp_hdr_t*)packet_data(buf);
+    udp_hdr->src_port = sport;
+    udp_hdr->dest_port = dport;
+    udp_hdr->total_len = buf->total_size;
+    udp_hdr->src_port = e_htons(udp_hdr->src_port);
+    udp_hdr->dest_port = e_htons(udp_hdr->dest_port);
+    udp_hdr->total_len = e_htons(udp_hdr->total_len);
+    udp_hdr->checksum = checksum_peso(src->a_addr, dest->a_addr, NET_PROTOCOL_UDP, buf);
+    err = ipv4_out(NET_PROTOCOL_UDP, dest, src, buf);
+    if (err < 0) {
+        log_error(LOG_UDP, "udp out error, err = %d", err);
+        return err;
+    }
+
+    return err;
 }

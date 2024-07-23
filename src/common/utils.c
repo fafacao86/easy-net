@@ -1,5 +1,6 @@
 ﻿#include "utils.h"
 #include "log.h"
+#include "ipaddr.h"
 
 static int is_little_endian(void) {
     // big endian：0x12, 0x34; small endian：0x34, 0x12
@@ -51,4 +52,22 @@ uint16_t checksum16(uint32_t offset, void* buf, uint16_t len, uint32_t pre_sum, 
     }
 
     return complement ? (uint16_t)~checksum : (uint16_t)checksum;
+}
+
+
+
+uint16_t checksum_peso(const uint8_t * src_ip, const uint8_t* dest_ip, uint8_t protocol, packet_t * buf) {
+    uint8_t zero_protocol[2] = { 0, protocol };
+    uint16_t len = e_htons(buf->total_size);
+    int offset = 0;
+    uint32_t sum = checksum16(offset, (uint16_t*)src_ip, IPV4_ADDR_SIZE, 0, 0);
+    offset += IPV4_ADDR_SIZE;
+    sum = checksum16(offset, (uint16_t*)dest_ip, IPV4_ADDR_SIZE, sum, 0);
+    offset += IPV4_ADDR_SIZE;
+    sum = checksum16(offset, (uint16_t*)zero_protocol, 2, sum, 0);
+    offset += 2;
+    sum = checksum16(offset, (uint16_t*)&len, 2, sum, 0);
+    packet_reset_pos(buf);
+    sum = packet_checksum16(buf, buf->total_size, sum, 1);
+    return sum;
 }
