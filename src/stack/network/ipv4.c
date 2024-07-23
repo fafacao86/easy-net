@@ -7,6 +7,7 @@
 #include "memory_pool.h"
 #include "timer.h"
 #include "raw.h"
+#include "udp.h"
 
 static uint16_t packet_id = 0;                  // incremental id for ipv4 packet
 
@@ -421,9 +422,16 @@ static net_err_t ip_normal_in(netif_t* netif, packet_t* packet, ipaddr_t* src, i
             return NET_OK;
         }
         case NET_PROTOCOL_UDP: {
-            iphdr_htons(pkt);   // be careful
-            icmpv4_out_unreach(src, &netif->ipaddr, ICMPv4_UNREACH_PORT, packet);
-            break;
+            net_err_t err = udp_in(packet, src, dest);
+            if (err < 0) {
+                log_warning(LOG_IP, "udp in error. err = %d\n", err);
+                if (err == NET_ERR_UNREACH) {
+                    iphdr_htons(pkt);
+                    icmpv4_out_unreach(src, &netif->ipaddr, ICMPv4_UNREACH_PORT, packet);
+                }
+                return err;
+            }
+            return NET_OK;
         }
         case NET_PROTOCOL_TCP:
             break;

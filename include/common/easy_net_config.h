@@ -77,6 +77,6 @@
  * UDP properties.
  * */
 #define UDP_MAX_NR               50                // maximum number of udp sockets
-
+#define UDP_MAX_RECV             1024                // maximum receive buffer of a udp socket
 
 #endif

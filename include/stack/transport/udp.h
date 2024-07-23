@@ -5,6 +5,11 @@
 
 
 #pragma pack(1)
+typedef struct _udp_from_t {
+    ipaddr_t from;
+    uint16_t port;
+}udp_from_t;
+
 typedef struct _udp_hdr_t {
     uint16_t src_port;
     uint16_t dest_port;
@@ -26,6 +31,7 @@ typedef struct _udp_t {
 }udp_t;
 
 net_err_t udp_init(void);
+net_err_t udp_in(packet_t* buf, ipaddr_t* src_ip, ipaddr_t* dest_ip);
 sock_t* udp_create(int family, int protocol);
 net_err_t udp_out(ipaddr_t* dest, uint16_t dport, ipaddr_t* src, uint16_t sport, packet_t* buf);
 net_err_t udp_sendto (struct _sock_t * sock, const void* buf, size_t len, int flags, const struct x_sockaddr* dest,
