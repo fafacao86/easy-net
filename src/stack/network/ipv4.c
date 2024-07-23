@@ -333,7 +333,7 @@ rentry_t* rt_find(ipaddr_t * ip) {
     list_node_t* node;
     list_for_each(node, &rt_list) {
         rentry_t* entry = list_entry(node, rentry_t, node);
-        // ip & mask != entry->net就跳过
+        // ip & mask != entry->net means doesn't match
         ipaddr_t net = ipaddr_get_net(ip, &entry->mask);
         if (!ipaddr_is_equal(&net, &entry->net)) {
             continue;

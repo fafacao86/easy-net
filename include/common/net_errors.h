@@ -19,6 +19,7 @@ typedef enum _net_err_t {
     NET_ERR_UNREACH = -13, // Unreachable address
     NET_ERR_WRONG_SOCKET = -14, // Wrong socket fd
     NET_ERR_CONNECTED = -15, // Already connected
+    NET_ERR_BINED = -16, // Already binded
 }net_err_t;
 
 #endif

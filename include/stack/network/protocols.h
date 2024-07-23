@@ -7,4 +7,12 @@ typedef enum _protocol_t {
     NET_PROTOCOL_UDP = 0x11,          // UDP
     NET_PROTOCOL_TCP = 0x06,          // TCP
     }protocol_t;
+
+/**
+ * reserved port numbers for common services
+ * */
+typedef enum _port_t {
+    NET_PORT_EMPTY = 0,
+}port_t;
+
 #endif //EASY_NET_PROTOCOLS_H
