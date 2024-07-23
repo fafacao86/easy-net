@@ -133,6 +133,50 @@ net_err_t udp_sendto (struct _sock_t * sock, const void* buf, size_t len, int fl
 }
 
 
+
+/**
+ *  in this function, we mainly validate the local ip and port
+ *  the ip has to be valid which means the ip has to be netif ip,
+ *  and the ip-port pair has to be unused
+ *  and one socket can only be bound once
+ */
+net_err_t udp_bind(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len) {
+    const struct x_sockaddr_in* addr_in = (const struct x_sockaddr_in*)addr;
+    // can not bind twice
+    if (sock->local_port != NET_PORT_EMPTY) {
+        log_error(LOG_UDP, "already binded.");
+        return NET_ERR_BINED;
+    }
+
+    ipaddr_t local_ip;
+    ipaddr_from_buf(&local_ip, (const uint8_t *)&addr_in->sin_addr.addr_array);
+    int port = e_ntohs(addr_in->sin_port);
+
+    // iterate the allocated sockets to check if there exists the same ip-port pair
+    list_node_t* node;
+    udp_t* udp = (udp_t*)0;
+    list_for_each(node, &udp_list) {
+        udp_t* u = (udp_t *)list_entry(node, sock_t, node);
+        if ((sock_t*)u == sock) {
+            continue;
+        }
+        if (ipaddr_is_equal(&sock->local_ip, &local_ip) && (sock->local_port == port)) {
+            udp = u;
+            break;
+        }
+    }
+    if (udp) {
+        log_error(LOG_UDP, "port already used!");
+        return NET_ERR_BINED;
+    } else {
+        // bind the socket, just set the local ip and port
+        sock_bind(sock, addr, len);
+    }
+    display_udp_list();
+    return NET_OK;
+}
+
+
 net_err_t udp_recvfrom(sock_t* sock, void* buf, size_t len, int flags,
                        struct x_sockaddr* src, x_socklen_t* addr_len, ssize_t * result_len) {
     udp_t * udp = (udp_t *)sock;
@@ -192,6 +236,9 @@ sock_t* udp_create(int family, int protocol) {
             .recvfrom = udp_recvfrom,
             .close = udp_close,
             .connect = udp_connect,
+            .send = sock_send,
+            .recv = sock_recv,
+            .bind = udp_bind,
     };
     udp_t* udp = (udp_t *)memory_pool_alloc(&udp_mblock, 0);
     if (!udp) {

@@ -39,7 +39,7 @@ int udp_echo_client_start(const char* ip, int port) {
 #ifdef USE_CONNECT
         ssize_t size = x_send(s, buf, total_len, 0);
 #else
-        ssize_t size = sendto(s, buf, total_len, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        ssize_t size = send(s, buf, total_len, 0);
 #endif
         if (size < 0) {
             printf("send error");
@@ -52,7 +52,7 @@ int udp_echo_client_start(const char* ip, int port) {
         struct sockaddr_in remote_addr;
         //socklen_t addr_len = sizeof(remote_addr);
         int addr_len = sizeof(remote_addr);
-        size = recvfrom(s, buf, sizeof(buf), 0, (struct sockaddr*)&remote_addr, &addr_len);
+        size = recv(s, buf, sizeof(buf), 0);
 #endif
         if (size < 0) {
             printf("recv error");

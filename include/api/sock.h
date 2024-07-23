@@ -43,6 +43,9 @@ typedef struct _sock_ops_t {
     net_err_t (*setopt)(struct _sock_t* s,  int level, int optname, const char * optval, int optlen);
     void (*destroy)(struct _sock_t *s);
     net_err_t (*connect)(struct _sock_t* s, const struct x_sockaddr* addr, x_socklen_t len);
+    net_err_t(*send)(struct _sock_t* s, const void* buf, size_t len, int flags, ssize_t * result_len);
+    net_err_t(*recv)(struct _sock_t* s, void* buf, size_t len, int flags, ssize_t * result_len);
+    net_err_t (*bind)(struct _sock_t* s, const struct x_sockaddr* addr, x_socklen_t len);
 }sock_ops_t;
 
 /**
@@ -98,6 +101,10 @@ typedef struct _sock_opt_t {
     int optlen;
 }sock_opt_t;
 
+typedef struct _sock_bind_t {
+    const struct x_sockaddr* addr;
+    x_socklen_t len;
+}sock_bind_t;
 
 
 /**
@@ -113,6 +120,7 @@ typedef struct _sock_req_t {
         sock_data_t data;
         sock_opt_t opt;
         sock_conn_t conn;
+        sock_bind_t bind;
     };
 }sock_req_t;
 
@@ -121,12 +129,19 @@ net_err_t sock_sendto_req_in (func_msg_t * api_msg);
 net_err_t sock_recvfrom_req_in(func_msg_t * api_msg);
 net_err_t sock_close_req_in (func_msg_t* api_msg);
 net_err_t sock_connect_req_in (func_msg_t* api_msg);
+net_err_t sock_send_req_in (func_msg_t * api_msg);
+net_err_t sock_recv_req_in(func_msg_t * api_msg);
+net_err_t sock_bind_req_in(func_msg_t * api_msg);
 
 net_err_t sock_connect(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len);
 net_err_t sock_init(sock_t* sock, int family, int protocol, const sock_ops_t * ops);
 net_err_t socket_init(void);
+net_err_t sock_send (struct _sock_t * sock, const void* buf, size_t len, int flags, ssize_t * result_len);
+net_err_t sock_recv (struct _sock_t * sock, void* buf, size_t len, int flags, ssize_t * result_len);
 void sock_uninit (sock_t * sock);
 net_err_t sock_setsockopt_req_in(func_msg_t * api_msg);
 net_err_t sock_setopt(struct _sock_t* s,  int level, int optname, const char * optval, int optlen);
 void sock_wakeup (sock_t * sock, int type, int err);
+net_err_t sock_bind(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len);
+
 #endif //EASY_NET_SOCK_H

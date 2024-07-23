@@ -39,5 +39,8 @@ const char * x_inet_ntop(int family, const void *addrptr, char *strptr, size_t l
 #define setsockopt(s, level, optname, optval, len)  x_setsockopt(s, level, optname, optval, len)
 #define close(s)                                    x_close(s)
 #define connect(s, addr, len)                       x_connect(s, addr, len)
+#define send(s, buf, len, flags)                    x_send(s, buf, len, flags)
+#define recv(s, buf, len, flags)                    x_recv(s, buf, len, flags)
+#define bind(s, addr, len)                          x_bind(s, addr, len)
 
 #endif //EASY_NET_NET_API_H

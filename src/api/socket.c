@@ -163,3 +163,86 @@ int x_connect(int sockfd, const struct x_sockaddr* addr, x_socklen_t len) {
     }
     return 0;
 }
+
+
+
+ssize_t x_send(int sockfd, const void* buf, size_t len, int flags) {
+    ssize_t send_size = 0;
+    uint8_t * start = (uint8_t *)buf;
+    while (len) {
+        sock_req_t req;
+        req.wait = 0;
+        req.sockfd = sockfd;
+        req.data.buf = start;
+        req.data.len = len;
+        req.data.flags = flags;
+        req.data.comp_len = 0;
+        net_err_t err = exmsg_func_exec(sock_send_req_in, &req);
+        if (err < 0) {
+            log_error(LOG_SOCKET, "write failed.");
+            return -1;
+        }
+        if (req.wait && ((err = sock_wait_enter(req.wait, req.wait_tmo)) < NET_OK)) {
+            log_error(LOG_SOCKET, "send failed %d.", err);
+            return -1;
+        }
+
+        len -= req.data.comp_len;
+        send_size += (ssize_t)req.data.comp_len;
+        start += req.data.comp_len;
+    }
+    return send_size;
+}
+
+
+
+ssize_t x_recv(int sockfd, void* buf, size_t len, int flags) {
+    while (1) {
+        sock_req_t req;
+        req.wait = 0;
+        req.sockfd = sockfd;
+        req.data.buf = buf;
+        req.data.len = len;
+        req.data.comp_len = 0;
+        net_err_t err = exmsg_func_exec(sock_recv_req_in, &req);
+        if (err < 0) {
+            log_error(LOG_SOCKET, "rcv failed.:", err);
+            return -1;
+        }
+        if (req.data.comp_len) {
+            return (ssize_t)req.data.comp_len;
+        }
+        err = sock_wait_enter(req.wait, req.wait_tmo);
+        if (err < 0) {
+            log_error(LOG_SOCKET, "recv failed %d.", err);
+            return -1;
+        }
+    }
+}
+
+
+/**
+ * bind is to set local address and local port
+ * to limit the scope of the socket
+ * */
+int x_bind(int sockfd, const struct x_sockaddr* addr, x_socklen_t len) {
+    if ((len != sizeof(struct x_sockaddr)) || !addr) {
+        log_error(LOG_SOCKET, "addr len error");
+        return -1;
+    }
+    if (addr->sa_family != AF_INET) {
+        log_error(LOG_SOCKET, "family error");
+        return -1;
+    }
+    sock_req_t req;
+    req.wait = 0;
+    req.sockfd = sockfd;
+    req.bind.addr = addr;
+    req.bind.len = len;
+    net_err_t err = exmsg_func_exec(sock_bind_req_in, &req);
+    if (err < 0) {
+        log_error(LOG_SOCKET, "setopt:", err);
+        return -1;
+    }
+    return 0;
+}

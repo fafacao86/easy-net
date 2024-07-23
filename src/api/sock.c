@@ -6,6 +6,7 @@
 #include "sock.h"
 #include "udp.h"
 #include "utils.h"
+#include "ipv4.h"
 
 #define SOCKET_MAX_NR		10
 static x_socket_t socket_tbl[SOCKET_MAX_NR];
@@ -321,3 +322,110 @@ net_err_t sock_connect(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t 
     sock->remote_port = e_ntohs(remote->sin_port);
     return NET_OK;
 }
+
+
+
+net_err_t sock_send_req_in (func_msg_t * api_msg) {
+    sock_req_t * req = (sock_req_t *)api_msg->param;
+    x_socket_t* s = get_socket(req->sockfd);
+    if (!s) {
+        log_error(LOG_SOCKET, "param error: socket = %d.", s);
+        return NET_ERR_PARAM;
+    }
+    sock_t* sock = s->sock;
+    sock_data_t * data = (sock_data_t *)&req->data;
+
+    sock->err = NET_OK;
+    net_err_t err = sock->ops->send(sock, data->buf, data->len, data->flags, &req->data.comp_len);
+    if (err == NET_ERR_NEED_WAIT) {
+        if (sock->snd_wait) {
+            sock_wait_add(sock->snd_wait, sock->snd_tmo, req);
+        }
+    }
+    return err;
+}
+
+/**
+ * wrapper function for sendto, taken the remote ip bound on the socket
+ * */
+net_err_t sock_send (struct _sock_t * sock, const void* buf, size_t len, int flags, ssize_t * result_len) {
+    if (ipaddr_is_any(&sock->remote_ip)) {
+        log_error(LOG_RAW, "dest ip is empty.");
+        return NET_ERR_UNREACH;
+    }
+
+    struct x_sockaddr_in dest;
+    dest.sin_family = sock->family;
+    dest.sin_port = e_htons(sock->remote_port);
+    ipaddr_to_buf(&sock->remote_ip, (uint8_t*)&dest.sin_addr);
+
+    // get the remote ip and port then call sendto
+    return sock->ops->sendto(sock, buf, len, flags, (const struct x_sockaddr *)&dest, sizeof(dest), result_len);
+}
+
+
+
+net_err_t sock_recv_req_in(func_msg_t * api_msg) {
+    sock_req_t * req = (sock_req_t *)api_msg->param;
+    x_socket_t* s = get_socket(req->sockfd);
+    if (!s) {
+        log_error(LOG_SOCKET, "param error: socket = %d.", s);
+        return NET_ERR_PARAM;
+    }
+    sock_t* sock = s->sock;
+    sock_data_t * data = (sock_data_t *)&req->data;
+
+    net_err_t err = sock->ops->recv(sock, data->buf, data->len, data->flags, &req->data.comp_len);
+    if (err == NET_ERR_NEED_WAIT) {
+        if (sock->rcv_wait) {
+            sock_wait_add(sock->rcv_wait, sock->rcv_tmo, req);
+        }
+    }
+
+    return err;
+}
+
+
+net_err_t sock_recv (struct _sock_t * sock, void* buf, size_t len, int flags, ssize_t * result_len) {
+    if (ipaddr_is_any(&sock->remote_ip)) {
+        log_error(LOG_RAW, "src ip is empty.socket is not connected");
+        return NET_ERR_PARAM;
+    }
+    struct x_sockaddr src;
+    x_socklen_t addr_len;
+    return sock->ops->recvfrom(sock, buf, len, flags, &src, &addr_len, result_len);
+}
+
+
+net_err_t sock_bind_req_in(func_msg_t * api_msg) {
+    sock_req_t * req = (sock_req_t *)api_msg->param;
+    x_socket_t* s = get_socket(req->sockfd);
+    if (!s) {
+        log_error(LOG_SOCKET, "param error: socket = %d.", s);
+        return NET_ERR_PARAM;
+    }
+    sock_t* sock = s->sock;
+    sock_bind_t * bind = (sock_bind_t *)&req->bind;
+    return sock->ops->bind(sock, bind->addr, bind->len);
+}
+
+
+
+net_err_t sock_bind(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len) {
+    ipaddr_t local_ip;
+    struct x_sockaddr_in* local = (struct x_sockaddr_in*)addr;
+    ipaddr_from_buf(&local_ip, local->sin_addr.addr_array);
+
+    if (!ipaddr_is_any(&local_ip)) {
+        // validate if the ipaddr is one of the netif ipaddr by looking up the route table
+        rentry_t * rt = rt_find(&local_ip);
+        if (!ipaddr_is_equal(&rt->netif->ipaddr, &local_ip)) {
+            log_error(LOG_SOCKET, "addr error");
+            return NET_ERR_PARAM;
+        }
+    }
+    ipaddr_copy(&sock->local_ip, &local_ip);
+    sock->local_port = e_ntohs(local->sin_port);
+    return NET_OK;
+}
+
