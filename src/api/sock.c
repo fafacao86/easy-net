@@ -4,6 +4,8 @@
 #include "raw.h"
 #include "socket.h"
 #include "sock.h"
+#include "udp.h"
+
 #define SOCKET_MAX_NR		10
 static x_socket_t socket_tbl[SOCKET_MAX_NR];
 
@@ -54,9 +56,9 @@ net_err_t sock_create_req_in(func_msg_t* api_msg) {
         int protocol;
         sock_t* (*create) (int family, int protocol);
     }  sock_tbl[] = {
-            [SOCK_RAW] = { .protocol = 0, .create = raw_create,}
+            [SOCK_RAW] = { .protocol = 0, .create = raw_create,},
+            [SOCK_DGRAM] = { .protocol = IPPROTO_UDP, .create = udp_create,}
     };
-
     sock_req_t * req = (sock_req_t *)api_msg->param;
     sock_create_t * param = &req->create;
 

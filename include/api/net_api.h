@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "socket.h"
+#include "utils.h"
 char* x_inet_ntoa(struct x_in_addr in);
 uint32_t x_inet_addr(const char* str);
 int x_inet_pton(int family, const char *strptr, void *addrptr);
@@ -16,16 +17,16 @@ const char * x_inet_ntop(int family, const void *addrptr, char *strptr, size_t l
 #define timeval         x_timeval
 
 #undef htons
-#define htons(v)                x_htons(v)
+#define htons(v)                e_htons(v)
 
 #undef ntohs
-#define ntohs(v)                x_ntohs(v)
+#define ntohs(v)                e_ntohs(v)
 
 #undef htonl
-#define htonl(v)                x_htonl(v)
+#define htonl(v)                e_htonl(v)
 
 #undef ntohl
-#define ntohl(v)                x_ntohl(v)
+#define ntohl(v)                e_ntohl(v)
 
 #define inet_ntoa(addr)             x_inet_ntoa(addr)
 #define inet_addr(str)              x_inet_addr(str)

@@ -1,18 +1,18 @@
 #include <string.h>
 #include <stdio.h>
-#if defined(SYS_PLAT_WINDOWS)
-#include <winsock2.h>
-#else
-#include <arpa/inet.h>
-#endif
-#include "sys_plat.h"
+//#if defined(SYS_PLAT_WINDOWS)
+//#include <winsock2.h>
+//#else
+//#include <arpa/inet.h>
+//#endif
+//#include "sys_plat.h"
 #include "udp_echo_server.h"
 #include "net_errors.h"
-
+#include "net_api.h"
 static uint16_t server_port;
 
 static void udp_echo_server(void * arg) {
-    SOCKET s = socket(AF_INET, SOCK_DGRAM, 0);
+    int s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s < 0) {
         printf("open socket error\n");
         goto end;
@@ -21,10 +21,10 @@ static void udp_echo_server(void * arg) {
     local_addr.sin_family = AF_INET;
     local_addr.sin_port = htons(server_port);
     local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    if (bind(s, (struct sockaddr *)&local_addr, sizeof(local_addr)) < 0) {
-        printf("bind error\n");
-        goto end;
-    }
+//    if (bind(s, (struct sockaddr *)&local_addr, sizeof(local_addr)) < 0) {
+//        printf("bind error\n");
+//        goto end;
+//    }
 
     while (1) {
         struct sockaddr_in client_addr;

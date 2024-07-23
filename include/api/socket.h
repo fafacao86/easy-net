@@ -20,7 +20,10 @@ int x_close(int sockfd);
 #define AF_INET                 0               // IPv4
 
 #undef SOCK_RAW
-#define SOCK_RAW                1
+#define SOCK_RAW                1               // raw IP packet socket, default type is ICMP
+#undef SOCK_DGRAM
+#define SOCK_DGRAM              2               // datagram socket, default type is UDP
+
 
 #undef IPPROTO_ICMP
 #define IPPROTO_ICMP            1               // ICMP

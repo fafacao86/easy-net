@@ -6,12 +6,13 @@
 #include <arpa/inet.h>
 #endif
 #include "sys_plat.h"
+#include "net_api.h"
 
 int udp_echo_client_start(const char* ip, int port) {
     printf("udp echo client, ip: %s, port: %d\n", ip, port);
     printf("Enter quit to exit\n");
 
-    SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    int s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (s < 0) {
         printf("open socket error");
         goto end;

@@ -8,6 +8,7 @@
 #include "icmpv4.h"
 #include "ipv4.h"
 #include "sock.h"
+#include "udp.h"
 
 /**
  * initialization of the protocol stack
@@ -25,6 +26,7 @@ net_err_t init_stack(void) {
     init_msg_handler();
     socket_init();
     loop_init();
+    udp_init();
     return NET_OK;
 }
 

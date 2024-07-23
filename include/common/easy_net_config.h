@@ -17,8 +17,8 @@
 #define LOG_TIMER               LEVEL_ERROR			// log level for timer
 #define LOG_ICMP                LEVEL_INFO			// log level for icmp
 #define LOG_SOCKET              LEVEL_INFO			// log level for socket
-#define LOG_RAW          LEVEL_INFO			// log level for raw socket
-
+#define LOG_RAW                 LEVEL_INFO			// log level for raw socket
+#define LOG_UDP                 LEVEL_INFO			// log level for udp
 
 
 /**
@@ -69,7 +69,14 @@
 */
 #define RAW_MAX_NR               100                // maximum number of raw sockets
 #define RAW_MAX_RECV             50                 // raw socket receive buffer size
+#define NET_PORT_DYN_START       1024               // start of dynamic port range
+#define NET_PORT_DYN_END         65535              // end of dynamic port range
 
+
+/**
+ * UDP properties.
+ * */
+#define UDP_MAX_NR               50                // maximum number of udp sockets
 
 
 #endif

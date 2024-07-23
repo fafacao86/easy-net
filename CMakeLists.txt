@@ -17,6 +17,7 @@ include_directories(
         ${PROJECT_SOURCE_DIR}/include/api
         ${PROJECT_SOURCE_DIR}/include/stack/link
         ${PROJECT_SOURCE_DIR}/include/stack/network
+        ${PROJECT_SOURCE_DIR}/include/stack/transport
 )
 
 file(GLOB_RECURSE SOURCE_LIST "src/*.c" "src/*.h" "test/*.c" "test/*.h" "include/*.h")
@@ -25,7 +26,9 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         src/stack/app/echo/udp_echo_client.h
         src/stack/app/echo/udp_echo_client.c
         src/stack/app/echo/udp_echo_server.h
-        src/stack/app/echo/udp_echo_server.c)
+        src/stack/app/echo/udp_echo_server.c
+        include/stack/transport/udp.h
+        src/stack/transport/udp.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
