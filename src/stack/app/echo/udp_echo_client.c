@@ -26,9 +26,9 @@ int udp_echo_client_start(const char* ip, int port) {
     server_addr.sin_port = htons(port);
 
 //#define USE_CONNECT
-#ifdef USE_CONNECT
-    x_connect(s, (const struct x_sockaddr*)&server_addr, sizeof(server_addr));
-#endif
+//#ifdef USE_CONNECT
+    connect(s, (const struct x_sockaddr*)&server_addr, sizeof(server_addr));
+//#endif
     printf(">>");
     char buf[128];
     while (fgets(buf, sizeof(buf), stdin) != NULL) {
@@ -65,8 +65,7 @@ int udp_echo_client_start(const char* ip, int port) {
     }
     end:
     if (s >= 0) {
-        //close(s);
-        closesocket(s);
+        close(s);
     }
     return -1;
 }

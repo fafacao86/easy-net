@@ -5,6 +5,7 @@
 #include "socket.h"
 #include "sock.h"
 #include "udp.h"
+#include "utils.h"
 
 #define SOCKET_MAX_NR		10
 static x_socket_t socket_tbl[SOCKET_MAX_NR];
@@ -292,4 +293,31 @@ net_err_t sock_close_req_in (func_msg_t* api_msg) {
     net_err_t err = sock->ops->close(sock);
     socket_free(s);
     return err;
+}
+
+net_err_t sock_connect_req_in (func_msg_t* api_msg) {
+    sock_req_t * req = (sock_req_t *)api_msg->param;
+    x_socket_t* s = get_socket(req->sockfd);
+    if (!s) {
+        log_error(LOG_SOCKET, "param error: socket = %d.", s);
+        return NET_ERR_PARAM;
+    }
+    sock_t* sock = s->sock;
+    sock_conn_t * conn = &req->conn;
+
+    net_err_t err = sock->ops->connect(sock, conn->addr, conn->len);
+    if (err == NET_ERR_NEED_WAIT) {
+        if (sock->conn_wait) {
+            sock_wait_add(sock->conn_wait, sock->rcv_tmo, req);
+        }
+    }
+    return err;
+}
+
+
+net_err_t sock_connect(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len) {
+    struct x_sockaddr_in* remote = (struct x_sockaddr_in*)addr;
+    ipaddr_from_buf(&sock->remote_ip, remote->sin_addr.addr_array);
+    sock->remote_port = e_ntohs(remote->sin_port);
+    return NET_OK;
 }

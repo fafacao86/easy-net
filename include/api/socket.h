@@ -14,6 +14,7 @@ ssize_t x_sendto(int sid, const void* buf, size_t len, int flags, const struct x
 ssize_t x_recvfrom(int sid, void* buf, size_t len, int flags, struct x_sockaddr* src, x_socklen_t* src_len);
 int x_setsockopt(int sockfd, int level, int optname, const char * optval, int optlen);
 int x_close(int sockfd);
+int x_connect(int sid, const struct x_sockaddr* addr, x_socklen_t len);
 
 
 #undef AF_INET

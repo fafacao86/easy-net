@@ -12,6 +12,23 @@ static list_t udp_list;
 
 
 #if LOG_DISP_ENABLED(LOG_UDP)
+static void display_udp_list (void) {
+    plat_printf("--- udp list\n --- ");
+
+    int idx = 0;
+    list_node_t * node;
+
+    list_for_each(node, &udp_list) {
+        udp_t * udp = (udp_t *)list_entry(node, sock_t, node);
+        plat_printf("[%d]\n", idx++);
+        dump_ip_buf("\tlocal:", (const uint8_t *)&udp->base.local_ip.a_addr);
+        plat_printf("\tlocal port: %d\n", udp->base.local_port);
+        dump_ip_buf("\tremote:", (const uint8_t *)&udp->base.remote_ip.a_addr);
+        plat_printf("\tremote port: %d\n", udp->base.remote_port);
+    }
+}
+
+
 static void display_udp_packet(udp_pkt_t * pkt) {
     plat_printf("UDP packet:\n");
     plat_printf("source Port:%d\n", pkt->hdr.src_port);
@@ -22,6 +39,7 @@ static void display_udp_packet(udp_pkt_t * pkt) {
 #else
 
 #define display_udp_packet(packet)
+static void display_udp_list (void)
 #endif
 
 
@@ -148,11 +166,32 @@ net_err_t udp_recvfrom(sock_t* sock, void* buf, size_t len, int flags,
 }
 
 
+net_err_t udp_close(sock_t* sock) {
+    display_udp_list();
+    udp_t * udp = (udp_t *)sock;
+    list_remove(&udp_list, &sock->node);
+    list_node_t* node;
+    while ((node = list_remove_first(&udp->recv_list))) {
+        packet_t* buf = list_entry(node, packet_t, node);
+        packet_free(buf);
+    }
+    memory_pool_free(&udp_mblock, sock);
+    return NET_OK;
+}
+
+net_err_t udp_connect(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len) {
+    sock_connect(sock, addr, len);
+    display_udp_list();
+    return NET_OK;
+}
+
 sock_t* udp_create(int family, int protocol) {
     static const sock_ops_t udp_ops = {
             .setopt = sock_setopt,
             .sendto = udp_sendto,
             .recvfrom = udp_recvfrom,
+            .close = udp_close,
+            .connect = udp_connect,
     };
     udp_t* udp = (udp_t *)memory_pool_alloc(&udp_mblock, 0);
     if (!udp) {

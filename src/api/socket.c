@@ -133,3 +133,33 @@ int x_close(int sockfd) {
 
     return 0;
 }
+
+/**
+ * connect is just to set remote address and remote port
+ * */
+int x_connect(int sockfd, const struct x_sockaddr* addr, x_socklen_t len) {
+    if ((len != sizeof(struct x_sockaddr)) || !addr) {
+        log_error(LOG_SOCKET, "addr error");
+        return -1;
+    }
+    if (addr->sa_family != AF_INET) {
+        log_error(LOG_SOCKET, "family error");
+        return -1;
+    }
+    const struct x_sockaddr_in* addr_in = (const struct x_sockaddr_in*)addr;
+    if ((addr_in->sin_addr.s_addr == INADDR_ANY) || !addr_in->sin_port) {
+        log_error(LOG_SOCKET, "ip or port is empty");
+        return -1;
+    }
+    sock_req_t req;
+    req.wait = 0;
+    req.sockfd = sockfd;
+    req.conn.addr = addr;
+    req.conn.len = len;
+    net_err_t err = exmsg_func_exec(sock_connect_req_in, &req);
+    if (err < 0) {
+        log_error(LOG_SOCKET, "try connect failed: %d", err);
+        return -1;
+    }
+    return 0;
+}

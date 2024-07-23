@@ -42,6 +42,7 @@ typedef struct _sock_ops_t {
                          struct x_sockaddr* src, x_socklen_t * addr_len, ssize_t * result_len);
     net_err_t (*setopt)(struct _sock_t* s,  int level, int optname, const char * optval, int optlen);
     void (*destroy)(struct _sock_t *s);
+    net_err_t (*connect)(struct _sock_t* s, const struct x_sockaddr* addr, x_socklen_t len);
 }sock_ops_t;
 
 /**
@@ -76,6 +77,12 @@ typedef struct _sock_data_t {
     ssize_t comp_len;              // bytes actually sent/received
 }sock_data_t;
 
+// req for connect
+typedef struct _sock_conn_t {
+    const struct x_sockaddr* addr;
+    x_socklen_t len;
+}sock_conn_t;
+
 
 typedef struct _sock_create_t {
     int family;
@@ -105,6 +112,7 @@ typedef struct _sock_req_t {
         sock_create_t create;
         sock_data_t data;
         sock_opt_t opt;
+        sock_conn_t conn;
     };
 }sock_req_t;
 
@@ -112,6 +120,9 @@ net_err_t sock_create_req_in(func_msg_t* api_msg);
 net_err_t sock_sendto_req_in (func_msg_t * api_msg);
 net_err_t sock_recvfrom_req_in(func_msg_t * api_msg);
 net_err_t sock_close_req_in (func_msg_t* api_msg);
+net_err_t sock_connect_req_in (func_msg_t* api_msg);
+
+net_err_t sock_connect(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len);
 net_err_t sock_init(sock_t* sock, int family, int protocol, const sock_ops_t * ops);
 net_err_t socket_init(void);
 void sock_uninit (sock_t * sock);
