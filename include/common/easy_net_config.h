@@ -19,7 +19,7 @@
 #define LOG_SOCKET              LEVEL_INFO			// log level for socket
 #define LOG_RAW                 LEVEL_INFO			// log level for raw socket
 #define LOG_UDP                 LEVEL_INFO			// log level for udp
-
+#define LOG_TCP                 LEVEL_INFO			// log level for tcp
 
 /**
  * Properties of the network stack.
@@ -78,5 +78,12 @@
  * */
 #define UDP_MAX_NR               50                // maximum number of udp sockets
 #define UDP_MAX_RECV             1024                // maximum receive buffer of a udp socket
+
+
+
+/**
+ * TCP properties.
+ * */
+#define TCP_MAX_NR               50                // maximum number of tcp sockets
 
 #endif

@@ -9,6 +9,7 @@
 #include "ipv4.h"
 #include "sock.h"
 #include "udp.h"
+#include "tcp.h"
 
 /**
  * initialization of the protocol stack
@@ -27,6 +28,7 @@ net_err_t init_stack(void) {
     socket_init();
     loop_init();
     udp_init();
+    tcp_init();
     return NET_OK;
 }
 

@@ -28,7 +28,11 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         src/stack/app/echo/udp_echo_server.h
         src/stack/app/echo/udp_echo_server.c
         include/stack/transport/udp.h
-        src/stack/transport/udp.c)
+        src/stack/transport/udp.c
+        src/stack/transport/tcp.c
+        include/stack/transport/tcp.h
+        src/stack/app/echo/tcp_echo_client.h
+        src/stack/app/echo/tcp_echo_client.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
