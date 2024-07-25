@@ -32,7 +32,11 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         src/stack/transport/tcp.c
         include/stack/transport/tcp.h
         src/stack/app/echo/tcp_echo_client.h
-        src/stack/app/echo/tcp_echo_client.c)
+        src/stack/app/echo/tcp_echo_client.c
+        include/stack/transport/tcp_in.h
+        src/stack/transport/tcp_in.c
+        include/stack/transport/tcp_out.h
+        src/stack/transport/tcp_out.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

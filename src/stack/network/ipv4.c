@@ -8,6 +8,7 @@
 #include "timer.h"
 #include "raw.h"
 #include "udp.h"
+#include "tcp_in.h"
 
 static uint16_t packet_id = 0;                  // incremental id for ipv4 packet
 
@@ -433,8 +434,15 @@ static net_err_t ip_normal_in(netif_t* netif, packet_t* packet, ipaddr_t* src, i
             }
             return NET_OK;
         }
-        case NET_PROTOCOL_TCP:
-            break;
+        case NET_PROTOCOL_TCP:{
+            packet_remove_header(packet, ipv4_hdr_size(pkt));
+            net_err_t err = tcp_in(packet, src, dest);
+            if (err < 0) {
+                log_warning(LOG_IP, "udp in error. err = %d\n", err);
+                return err;
+            }
+            return NET_OK;
+        }
         default:{
             //log_warning(LOG_IP, "unknown protocol %d, .\n", pkt->hdr.protocol);
             net_err_t err = raw_in(packet);
