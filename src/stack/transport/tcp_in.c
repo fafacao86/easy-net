@@ -7,8 +7,7 @@
 #include "protocols.h"
 #include "tcp_out.h"
 
-
-static inline int tcp_hdr_size (tcp_hdr_t * hdr) {
+int tcp_hdr_size (tcp_hdr_t * hdr) {
     return hdr->shdr * 4;
 }
 
@@ -62,6 +61,7 @@ net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
     tcp_hdr->ack = e_ntohl(tcp_hdr->ack);
     tcp_hdr->win = e_ntohs(tcp_hdr->win);
     tcp_hdr->urgptr = e_ntohs(tcp_hdr->urgptr);
+    tcp_display_pkt("tcp packet in!", tcp_hdr, buf);
     tcp_seg_t seg;
     tcp_seg_init(&seg, buf, dest_ip, src_ip);
     tcp_send_reset(&seg);

@@ -2,6 +2,7 @@
 #define EASY_NET_TCP_H
 #include "net_errors.h"
 #include "sock.h"
+#include "log.h"
 /**
  * https://datatracker.ietf.org/doc/html/rfc793
  *
@@ -115,11 +116,31 @@ typedef struct _tcp_seg_t {
 
 typedef struct _tcp_t {
     sock_t base;
+    struct {
+        sock_wait_t wait;       // wait_t for connection establishment
+    }conn;
 } tcp_t;
 
+
+#if LOG_DISP_ENABLED(LOG_TCP)
+void tcp_show_info (char * msg, tcp_t * tcp);
+void tcp_display_pkt (char * msg, tcp_hdr_t * tcp_hdr, packet_t * buf);
+void tcp_show_list (void);
+#else
+#define tcp_show_info(msg, tcp)
+#define tcp_display_pkt(msg, hdr, buf)
+#define tcp_show_list()
+#endif
+
+
 net_err_t tcp_init(void);
-
 sock_t* tcp_create (int family, int protocol);
-
 void tcp_seg_init (tcp_seg_t * seg, packet_t * buf, ipaddr_t * local, ipaddr_t * remote);
+void tcp_set_hdr_size (tcp_hdr_t * hdr, int size);
+int tcp_hdr_size (tcp_hdr_t * hdr);
+
+
+net_err_t tcp_close(struct _sock_t* sock);
+net_err_t tcp_connect(struct _sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len);
+
 #endif //EASY_NET_TCP_H

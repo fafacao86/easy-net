@@ -20,10 +20,10 @@ int tcp_echo_client_start (const char* ip, int port) {
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = inet_addr(ip);
     server_addr.sin_port = htons(port);
-//    if (connect(s, (const struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-//        plat_printf("connect error");
-//        goto end;
-//    }
+    if (connect(s, (const struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        plat_printf("connect error");
+        goto end;
+    }
     char sbuf[128];
     fgets(sbuf, sizeof(sbuf), stdin);
     close(s);

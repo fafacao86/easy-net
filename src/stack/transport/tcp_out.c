@@ -8,11 +8,12 @@
 /**
  * because the header length unit is 4 bytes
  * */
-static inline void tcp_set_hdr_size (tcp_hdr_t * hdr, int size) {
+void tcp_set_hdr_size (tcp_hdr_t * hdr, int size) {
     hdr->shdr = size / 4;
 }
 
 static net_err_t send_out (tcp_hdr_t * out, packet_t * buf, ipaddr_t * dest, ipaddr_t * src) {
+    tcp_display_pkt("tcp out", out, buf);
     out->sport = e_htons(out->sport);
     out->dport = e_htons(out->dport);
     out->seq = e_htonl(out->seq);
