@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "protocols.h"
 #include "ipv4.h"
+#include "tcp_out.h"
 
 
 static tcp_t tcp_tbl[TCP_MAX_NR];
@@ -84,6 +85,19 @@ static tcp_t* tcp_alloc(int wait, int family, int protocol) {
         memory_pool_free(&tcp_mblock, tcp);
         return (tcp_t*)0;
     }
+    // sender and receiver window variables
+    tcp->snd.una = tcp->snd.nxt = tcp->snd.iss = 0;
+    tcp->rcv.nxt = tcp->rcv.iss = 0;
+    if (sock_wait_init(&tcp->snd.wait) < 0) {
+        log_error(LOG_TCP, "create snd.wait failed");
+        goto alloc_failed;
+    }
+    tcp->base.snd_wait = &tcp->snd.wait;
+    if (sock_wait_init(&tcp->rcv.wait) < 0) {
+        log_error(LOG_TCP, "create rcv.wait failed");
+        goto alloc_failed;
+    }
+    tcp->base.rcv_wait = &tcp->rcv.wait;
     if (sock_wait_init(&tcp->conn.wait) < 0) {
         log_error(LOG_TCP, "create conn.wait failed");
         goto alloc_failed;
@@ -158,6 +172,34 @@ int tcp_alloc_port(void) {
     return -1;
 }
 
+
+/**
+ * in RFC 793, the iss is generated using clock
+ * here for simplicity, we just use a static random sequence number
+ * */
+static uint32_t tcp_get_iss(void) {
+    static uint32_t seq = 0;
+#if 0
+    seq += seq == 0 ? clock() : 305;
+#else
+    seq += seq == 0 ? 32435 : 305;
+#endif
+    return seq;
+}
+
+
+/**
+ * before connect we need to initialize the window variables
+ * and generate a new initial sequence number (iss)
+ * */
+static net_err_t tcp_init_connect(tcp_t * tcp) {
+    tcp->snd.iss = tcp_get_iss();
+    tcp->snd.una = tcp->snd.nxt = tcp->snd.iss;
+    tcp->rcv.nxt = 0;
+    return NET_OK;
+}
+
+
 net_err_t tcp_connect(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len) {
     tcp_t * tcp = (tcp_t *)sock;
     // set remote ip and port
@@ -183,7 +225,16 @@ net_err_t tcp_connect(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t l
         }
         ipaddr_copy(&sock->local_ip, &rt->netif->ipaddr);
     }
-
+    net_err_t err;
+    // initialize window variables, before sending SYN
+    if ((err = tcp_init_connect(tcp)) < 0) {
+        log_error(LOG_TCP, "init conn failed.");
+        return err;
+    }
+    if ((err = tcp_send_syn(tcp)) < 0) {
+        log_error(LOG_TCP, "send syn failed.");
+        return err;
+    }
     // wait for three-way handshake to complete
     return NET_ERR_NEED_WAIT;
 }

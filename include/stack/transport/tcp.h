@@ -118,7 +118,26 @@ typedef struct _tcp_t {
     sock_t base;
     struct {
         sock_wait_t wait;       // wait_t for connection establishment
-    }conn;
+    } conn;
+
+    struct {
+        uint32_t syn_out : 1;
+    } flags;
+
+    // checkout RFC 793 Figure 4
+    struct {
+        uint32_t una;	    // send unacknowledged
+        uint32_t nxt;	    // seq that hasn't been sent yet
+        uint32_t iss;	    // initial send sequence number
+        sock_wait_t wait;   // send wait structure
+    } snd;
+
+    // checkout RFC 793 Figure 5
+    struct {
+        uint32_t nxt;	    // the seq number of the next expected packet
+        uint32_t iss;	    // initial receive sequence number
+        sock_wait_t wait;   // rcv wait structure
+    } rcv;
 } tcp_t;
 
 
