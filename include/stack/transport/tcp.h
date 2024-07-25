@@ -114,6 +114,25 @@ typedef struct _tcp_seg_t {
 #pragma pack()
 
 
+typedef enum _tcp_state_t {
+    TCP_STATE_FREE = 0,             // not in official state list
+    TCP_STATE_CLOSED,
+    TCP_STATE_LISTEN,
+    TCP_STATE_SYN_SENT,
+    TCP_STATE_SYN_RECVD,
+    TCP_STATE_ESTABLISHED,
+    TCP_STATE_FIN_WAIT_1,
+    TCP_STATE_FIN_WAIT_2,
+    TCP_STATE_CLOSING,
+    TCP_STATE_TIME_WAIT,
+    TCP_STATE_CLOSE_WAIT,
+    TCP_STATE_LAST_ACK,
+
+    TCP_STATE_MAX,      // not a state, used to get the number of states
+}tcp_state_t;
+
+
+
 typedef struct _tcp_t {
     sock_t base;
     struct {
@@ -138,6 +157,8 @@ typedef struct _tcp_t {
         uint32_t iss;	    // initial receive sequence number
         sock_wait_t wait;   // rcv wait structure
     } rcv;
+
+    tcp_state_t state;
 } tcp_t;
 
 
@@ -154,6 +175,7 @@ void tcp_show_list (void);
 
 net_err_t tcp_init(void);
 sock_t* tcp_create (int family, int protocol);
+sock_t* tcp_find(ipaddr_t * local_ip, uint16_t local_port, ipaddr_t * remote_ip, uint16_t remote_port);
 void tcp_seg_init (tcp_seg_t * seg, packet_t * buf, ipaddr_t * local, ipaddr_t * remote);
 void tcp_set_hdr_size (tcp_hdr_t * hdr, int size);
 int tcp_hdr_size (tcp_hdr_t * hdr);

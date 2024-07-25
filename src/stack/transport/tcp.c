@@ -6,6 +6,7 @@
 #include "protocols.h"
 #include "ipv4.h"
 #include "tcp_out.h"
+#include "tcp_state.h"
 
 
 static tcp_t tcp_tbl[TCP_MAX_NR];
@@ -85,6 +86,7 @@ static tcp_t* tcp_alloc(int wait, int family, int protocol) {
         memory_pool_free(&tcp_mblock, tcp);
         return (tcp_t*)0;
     }
+    tcp->state = TCP_STATE_CLOSED;
     // sender and receiver window variables
     tcp->snd.una = tcp->snd.nxt = tcp->snd.iss = 0;
     tcp->rcv.nxt = tcp->rcv.iss = 0;
@@ -202,6 +204,10 @@ static net_err_t tcp_init_connect(tcp_t * tcp) {
 
 net_err_t tcp_connect(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len) {
     tcp_t * tcp = (tcp_t *)sock;
+    if (tcp->state != TCP_STATE_CLOSED) {
+        log_error(LOG_TCP, "tcp is not closed. connect is not allowed");
+        return NET_ERR_STATE;
+    }
     // set remote ip and port
     const struct x_sockaddr_in* addr_in = (const struct x_sockaddr_in*)addr;
     ipaddr_from_buf(&sock->remote_ip, (uint8_t *)&addr_in->sin_addr.s_addr);
@@ -235,6 +241,27 @@ net_err_t tcp_connect(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t l
         log_error(LOG_TCP, "send syn failed.");
         return err;
     }
+    tcp_set_state(tcp, TCP_STATE_SYN_SENT);
     // wait for three-way handshake to complete
     return NET_ERR_NEED_WAIT;
+}
+
+
+/**
+ * if not perfectly matched, search for listen socket
+ * */
+sock_t* tcp_find(ipaddr_t * local_ip, uint16_t local_port, ipaddr_t * remote_ip, uint16_t remote_port) {
+    sock_t* match = (sock_t*)0;
+    list_node_t* node;
+    list_for_each(node, &tcp_list) {
+        sock_t* s = list_entry(node, sock_t, node);
+
+        // 4-tuple perfectly matched
+        if (ipaddr_is_equal(&s->local_ip, local_ip) && (s->local_port == local_port) &&
+            ipaddr_is_equal(&s->remote_ip, remote_ip) && (s->remote_port == remote_port)) {
+            return s;
+        }
+    }
+    // TODO: search for listen socket
+    return (sock_t*)match;
 }

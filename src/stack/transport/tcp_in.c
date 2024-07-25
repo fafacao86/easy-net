@@ -6,6 +6,7 @@
 #include "log.h"
 #include "protocols.h"
 #include "tcp_out.h"
+#include "tcp_state.h"
 
 int tcp_hdr_size (tcp_hdr_t * hdr) {
     return hdr->shdr * 4;
@@ -32,6 +33,17 @@ void tcp_seg_init (tcp_seg_t * seg, packet_t * buf, ipaddr_t * local, ipaddr_t *
  * handle a TCP packet
  */
 net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
+    static const tcp_proc_t tcp_state_proc[] = {
+            [TCP_STATE_CLOSED] = tcp_closed_in,
+            [TCP_STATE_SYN_SENT] = tcp_syn_sent_in,
+            [TCP_STATE_ESTABLISHED] = tcp_established_in,
+            [TCP_STATE_FIN_WAIT_1] = tcp_fin_wait_1_in,
+            [TCP_STATE_FIN_WAIT_2] = tcp_fin_wait_2_in,
+            [TCP_STATE_CLOSING] = tcp_closing_in,
+            [TCP_STATE_TIME_WAIT] = tcp_time_wait_in,
+            [TCP_STATE_CLOSE_WAIT] = tcp_close_wait_in,
+            [TCP_STATE_LAST_ACK] = tcp_last_ack_in,
+    };
     tcp_hdr_t * tcp_hdr = (tcp_hdr_t *)packet_data(buf);
     if (tcp_hdr->checksum) {
         packet_reset_pos(buf);
@@ -64,7 +76,17 @@ net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
     tcp_display_pkt("tcp packet in!", tcp_hdr, buf);
     tcp_seg_t seg;
     tcp_seg_init(&seg, buf, dest_ip, src_ip);
-    tcp_send_reset(&seg);
+    tcp_t *tcp = (tcp_t *)tcp_find(dest_ip, tcp_hdr->dport, src_ip, tcp_hdr->sport);
+    if (!tcp || (tcp->state >= TCP_STATE_MAX)) {
+        log_error(LOG_TCP, "no tcp found: port = %d", tcp_hdr->dport);
+        tcp_send_reset(&seg);
+        packet_free(buf);
+
+        tcp_show_list();
+        return NET_OK;
+    }
+    tcp_state_proc[tcp->state](tcp, &seg);
+    tcp_show_info("after tcp in", tcp);
     return NET_OK;
 }
 
