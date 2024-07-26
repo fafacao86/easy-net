@@ -139,8 +139,10 @@ typedef struct _tcp_t {
         sock_wait_t wait;       // wait_t for connection establishment
     } conn;
 
+    // these flags are used to assist keep track of the state of the tcp connection
     struct {
         uint32_t syn_out : 1;
+        uint32_t irs_valid : 1;    // this is to denote that we have set the recv window variables
     } flags;
 
     // checkout RFC 793 Figure 4
@@ -183,5 +185,5 @@ int tcp_hdr_size (tcp_hdr_t * hdr);
 
 net_err_t tcp_close(struct _sock_t* sock);
 net_err_t tcp_connect(struct _sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len);
-
+net_err_t tcp_abort (tcp_t * tcp, int err);
 #endif //EASY_NET_TCP_H

@@ -20,6 +20,7 @@ typedef enum _net_err_t {
     NET_ERR_WRONG_SOCKET = -14, // Wrong socket fd
     NET_ERR_CONNECTED = -15, // Already connected
     NET_ERR_BINED = -16, // Already binded
+    NET_ERR_RESET = -17, // Connection reset by peer
 }net_err_t;
 
 #endif

@@ -1,4 +1,4 @@
-#include "net_errors.h"
+﻿#include "net_errors.h"
 #include "tcp.h"
 #include "utils.h"
 #include "protocols.h"
@@ -94,8 +94,8 @@ net_err_t tcp_send_reset(tcp_seg_t * seg) {
 
 /**
  *
- * @brief 检查是否有数据需要发送。如果有数据需要发且能发送，则发送
- * 从下面的实现代码可以出现，发送过程中可能会按照需要组成不确定大小的数据包发送
+ * transmit TCP segment and move seq forward,
+ * and set egress segment flags based on the connection flags in the socket
  */
 net_err_t tcp_transmit(tcp_t * tcp) {
     packet_t* buf = packet_alloc(sizeof(tcp_hdr_t));
@@ -110,10 +110,8 @@ net_err_t tcp_transmit(tcp_t * tcp) {
     hdr->seq = tcp->snd.nxt;
     hdr->ack = tcp->rcv.nxt;
     hdr->flags = 0;
-    hdr->f_syn = tcp->flags.syn_out; //don't clear the syn_out flag, because of possible retransmission
-
-    // In the whole connection, only the first segment can disable ack
-    hdr->f_ack = 0;
+    hdr->f_syn = tcp->flags.syn_out;
+    hdr->f_ack = tcp->flags.irs_valid;
     hdr->win = 1024;
     hdr->urgptr = 0;
     tcp_set_hdr_size(hdr, buf->total_size);
@@ -129,4 +127,53 @@ net_err_t tcp_send_syn(tcp_t* tcp) {
     tcp->flags.syn_out = 1;
     tcp_transmit(tcp);
     return NET_OK;
+}
+
+
+/**
+ * seg is an input segment, which has ACK flag set
+ * we need to update window variables based on it
+ * */
+net_err_t tcp_ack_process (tcp_t * tcp, tcp_seg_t * seg) {
+    tcp_hdr_t * tcp_hdr = seg->hdr;
+
+    // set the syn_out flag to 0,
+    // because we have received the first ACK for the connection
+    if (tcp->flags.syn_out) {
+        tcp->snd.una++;
+        tcp->flags.syn_out = 0;
+    }
+
+    return NET_OK;
+}
+
+
+/**
+ * send a pure ACK segment to the peer
+ */
+net_err_t tcp_send_ack(tcp_t* tcp, tcp_seg_t * seg) {
+    // do not ack RST
+    if (seg->hdr->f_rst) {
+        return NET_OK;
+    }
+    packet_t* buf = packet_alloc(sizeof(tcp_hdr_t));
+    if (!buf) {
+        log_error(LOG_TCP, "no buffer");
+        return NET_ERR_NONE;
+    }
+    tcp_hdr_t* out = (tcp_hdr_t*)packet_data(buf);
+    out->sport = tcp->base.local_port;
+    out->dport = tcp->base.remote_port;
+    out->seq = tcp->snd.nxt;
+    out->ack = tcp->rcv.nxt;
+    out->flags = 0;
+    out->f_ack = 1;
+    out->win = 0;
+    out->urgptr = 0;
+    out->win = 1024;
+    tcp_set_hdr_size(out, sizeof(tcp_hdr_t));
+
+    // the connection might have not been established yet,
+    // so we use the remote_ip in the seg instead of the remote_ip in the socket
+    return send_out(out, buf, &seg->remote_ip, &seg->local_ip);
 }

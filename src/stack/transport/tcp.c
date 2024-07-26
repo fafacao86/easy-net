@@ -265,3 +265,17 @@ sock_t* tcp_find(ipaddr_t * local_ip, uint16_t local_port, ipaddr_t * remote_ip,
     // TODO: search for listen socket
     return (sock_t*)match;
 }
+
+
+
+
+/**
+ * abort tcp connection, enter CLOSED state,
+ * notify application if there is any threads waiting on this socket
+ * the release of resources should be done by the application
+ */
+net_err_t tcp_abort (tcp_t * tcp, int err) {
+    tcp_set_state(tcp, TCP_STATE_CLOSED);
+    sock_wakeup(&tcp->base, SOCK_WAIT_ALL, err);
+    return NET_OK;
+}

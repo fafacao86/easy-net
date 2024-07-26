@@ -161,6 +161,10 @@ int x_connect(int sockfd, const struct x_sockaddr* addr, x_socklen_t len) {
         log_error(LOG_SOCKET, "try connect failed: %d", err);
         return -1;
     }
+    if (req.wait && ((err = sock_wait_enter(req.wait, req.wait_tmo)) < NET_OK)) {
+        log_error(LOG_SOCKET, "connect failed %d.", err);
+        return -1;
+    }
     return 0;
 }
 
