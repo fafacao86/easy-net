@@ -196,12 +196,48 @@ net_err_t tcp_last_ack_in (tcp_t * tcp, tcp_seg_t * seg) {
 
 
 /**
+ * wait for 2 MSL
+ * this is to retransmit ACK for peer
+ */
+void tcp_time_wait (tcp_t * tcp) {
+}
+
+
+
+
+/**
  * FIN_WAIT_1
  * we are the active close side,
  * and we have already sent a FIN to the remote
  * we can receive data from the remote, but we don't need to send any data
  */
 net_err_t tcp_fin_wait_1_in(tcp_t * tcp, tcp_seg_t * seg) {
+    tcp_hdr_t *tcp_hdr = seg->hdr;
+    // check rst
+    if (tcp_hdr->f_rst) {
+        log_warning(LOG_TCP, "%s: recieve a rst", tcp_state_name(tcp->state));
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    if (tcp_hdr->f_syn) {
+        log_warning(LOG_TCP, "%s: recieve a syn", tcp_state_name(tcp->state));
+        tcp_send_reset(seg);
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    // process ack
+    if (tcp_ack_process(tcp, seg) < 0) {
+        log_warning(LOG_TCP, "%s:  ack process failed", tcp_state_name(tcp->state));
+        return NET_ERR_UNREACH;
+    }
+    // because in this state, it is half-close, we can still receive data from the remote
+    tcp_data_in(tcp, seg);
+    if (tcp_hdr->f_fin) {
+        // this is for simultaneous close
+        tcp_time_wait(tcp);
+    } else {
+        // no FIN, just ack for our FIN, enter FIN_WAIT_2 state
+        tcp_set_state(tcp, TCP_STATE_FIN_WAIT_2);
+        //sock_wakeup(tcp, SOCK_WAIT_CONN, NET_ERR_OK);
+    }
     return NET_OK;
 }
 
@@ -212,6 +248,24 @@ net_err_t tcp_fin_wait_1_in(tcp_t * tcp, tcp_seg_t * seg) {
  * and enter the TIME_WAIT state because of the possible retransmission of the ACK
  */
 net_err_t tcp_fin_wait_2_in(tcp_t * tcp, tcp_seg_t * seg) {
+    tcp_hdr_t *tcp_hdr = seg->hdr;
+    if (tcp_hdr->f_rst) {
+        log_warning(LOG_TCP, "%s: recieve a rst", tcp_state_name(tcp->state));
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    if (tcp_hdr->f_syn) {
+        log_warning(LOG_TCP, "%s: recieve a syn", tcp_state_name(tcp->state));
+        tcp_send_reset(seg);
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    if (tcp_ack_process(tcp, seg) < 0) {
+        log_warning(LOG_TCP, "%s:  ack process failed", tcp_state_name(tcp->state));
+        return NET_ERR_UNREACH;
+    }
+    tcp_data_in(tcp, seg);
+    if (tcp_hdr->f_fin) {
+        tcp_time_wait(tcp);
+    }
     return NET_OK;
 }
 

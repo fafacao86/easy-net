@@ -298,14 +298,19 @@ net_err_t tcp_close(sock_t* sock) {
             tcp_free(tcp);
             return NET_OK;
         case TCP_STATE_SYN_RECVD:
-        case TCP_STATE_SYN_SENT:        // connection has not been established, abort and free tcb
+        case TCP_STATE_SYN_SENT:        // if connection has not been established, abort and free tcb
             tcp_abort(tcp, NET_ERR_CLOSED);
             tcp_free(tcp);
             return NET_OK;
         case TCP_STATE_CLOSE_WAIT:
-            // send fin, enter last_ack and wait for ack
+            // passive close, send fin, enter last_ack and wait for ack
             tcp_send_fin(tcp);
             tcp_set_state(tcp, TCP_STATE_LAST_ACK);
+            return NET_ERR_NEED_WAIT;
+        case TCP_STATE_ESTABLISHED:
+            // active close, send fin, enter fin_wait_1 and wait for ack
+            tcp_send_fin(tcp);
+            tcp_set_state(tcp, TCP_STATE_FIN_WAIT_1);
             return NET_ERR_NEED_WAIT;
         default:
             // other states, return error
