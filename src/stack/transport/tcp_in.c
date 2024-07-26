@@ -90,3 +90,36 @@ net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
     return NET_OK;
 }
 
+
+
+
+/**
+ * process the tcp segment input data, extract data to receive buffer
+ * if there is FIN, send ACK
+ */
+net_err_t tcp_data_in (tcp_t * tcp, tcp_seg_t * seg) {
+    // wake up or not
+    int wakeup = 0;
+
+    // TODO: check before ack FIN
+    tcp_hdr_t * tcp_hdr = seg->hdr;
+    if (tcp_hdr->f_fin) {
+        tcp->rcv.nxt++;
+        wakeup++;
+    }
+
+    // if there is data, notify the application
+    if (wakeup) {
+        if (tcp_hdr->f_fin) {
+            sock_wakeup((sock_t *)tcp, SOCK_WAIT_ALL, NET_ERR_CLOSED);
+        } else {
+            sock_wakeup((sock_t *)tcp, SOCK_WAIT_READ, NET_OK);
+        }
+
+        // TODO：delay ACK
+        tcp_send_ack(tcp, seg);
+    }
+
+    // 还要给对方发送响应
+    return NET_OK;
+}

@@ -1,5 +1,6 @@
 #include "tcp.h"
 #include "tcp_out.h"
+#include "tcp_in.h"
 
 /**
  * RFC 793 Page 64
@@ -123,6 +124,35 @@ net_err_t tcp_syn_sent_in(tcp_t *tcp, tcp_seg_t *seg) {
  * send and receive data normally
  */
 net_err_t tcp_established_in(tcp_t *tcp, tcp_seg_t *seg) {
+    tcp_hdr_t *tcp_hdr = seg->hdr;
+
+    // check RST
+    if (tcp_hdr->f_rst) {
+        log_warning(LOG_TCP, "%s: recieve a rst", tcp_state_name(tcp->state));
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+
+    // check SYN, if set, send a reset and abort the connection
+    if (tcp_hdr->f_syn) {
+        log_warning(LOG_TCP, "%s: recieve a syn", tcp_state_name(tcp->state));
+        tcp_send_reset(seg);
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+
+    // process ack, move the send window variables
+    if (tcp_ack_process(tcp, seg) < 0) {
+        log_warning(LOG_TCP, "%s:  ack process failed", tcp_state_name(tcp->state));
+        return NET_ERR_UNREACH;
+    }
+
+    // process data, including FIN, in this function, ACK might be sent
+    tcp_data_in(tcp, seg);
+
+    // TODO: check if all data has been received, only then, enter the CLOSE_WAIT state
+    if (tcp_hdr->f_fin) {
+        tcp_set_state(tcp, TCP_STATE_CLOSE_WAIT);
+    }
+
     return NET_OK;
 }
 
@@ -181,4 +211,6 @@ net_err_t tcp_closing_in (tcp_t * tcp, tcp_seg_t * seg) {
 net_err_t tcp_time_wait_in (tcp_t * tcp, tcp_seg_t * seg) {
     return NET_OK;
 }
+
+
 
