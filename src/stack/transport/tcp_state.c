@@ -173,8 +173,27 @@ net_err_t tcp_close_wait_in (tcp_t * tcp, tcp_seg_t * seg) {
  * in this state, we don't accept any more data from the remote
  */
 net_err_t tcp_last_ack_in (tcp_t * tcp, tcp_seg_t * seg) {
-    return NET_OK;
+    tcp_hdr_t *tcp_hdr = seg->hdr;
+    if (tcp_hdr->f_rst) {
+        log_warning(LOG_TCP, "%s: recieve a rst", tcp_state_name(tcp->state));
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    // if receive a SYN, send a reset and abort the connection
+    if (tcp_hdr->f_syn) {
+        log_warning(LOG_TCP, "%s: recieve a syn", tcp_state_name(tcp->state));
+        tcp_send_reset(seg);
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    // process ack
+    if (tcp_ack_process(tcp, seg) < 0) {
+        log_warning(LOG_TCP, "%s:  ack process failed", tcp_state_name(tcp->state));
+        return NET_ERR_UNREACH;
+    }
+
+    // TODO: ack might be for data not for FIN, check it and ensure all data has been acked
+    return tcp_abort(tcp, NET_ERR_CLOSED);
 }
+
 
 /**
  * FIN_WAIT_1

@@ -121,6 +121,7 @@ int x_setsockopt(int sockfd, int level, int optname, const char * optval, int op
     return 0;
 }
 
+
 int x_close(int sockfd) {
     sock_req_t req;
     req.wait = 0;
@@ -130,9 +131,13 @@ int x_close(int sockfd) {
         log_error(LOG_SOCKET, "try close failed %d, force delete.", err);
         return -1;
     }
-
+    if (req.wait) {
+        sock_wait_enter(req.wait, req.wait_tmo);
+    }
+    // TODO: free tcp_t
     return 0;
 }
+
 
 /**
  * connect is just to set remote address and remote port

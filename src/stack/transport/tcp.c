@@ -140,11 +140,6 @@ net_err_t tcp_init(void) {
 }
 
 
-net_err_t tcp_close(sock_t* sock) {
-    return NET_OK;
-}
-
-
 /**
  * allocate a dynamic port for tcp connection
  */
@@ -267,8 +262,6 @@ sock_t* tcp_find(ipaddr_t * local_ip, uint16_t local_port, ipaddr_t * remote_ip,
 }
 
 
-
-
 /**
  * abort tcp connection, enter CLOSED state,
  * notify application if there is any threads waiting on this socket
@@ -278,4 +271,45 @@ net_err_t tcp_abort (tcp_t * tcp, int err) {
     tcp_set_state(tcp, TCP_STATE_CLOSED);
     sock_wakeup(&tcp->base, SOCK_WAIT_ALL, err);
     return NET_OK;
+}
+
+
+
+void tcp_free(tcp_t* tcp) {
+    assert_halt(tcp->state != TCP_STATE_FREE, "tcp free");
+    sock_wait_destroy(&tcp->conn.wait);
+    sock_wait_destroy(&tcp->snd.wait);
+    sock_wait_destroy(&tcp->rcv.wait);
+    tcp->state = TCP_STATE_FREE;        // this is for debug purpose
+    list_remove(&tcp_list, &tcp->base.node);
+    memory_pool_free(&tcp_mblock, tcp);
+}
+
+
+
+net_err_t tcp_close(sock_t* sock) {
+    tcp_t* tcp = (tcp_t*)sock;
+    log_info(LOG_TCP, "closing tcp: state = %s", tcp_state_name(tcp->state));
+
+    // if already closed, return
+    switch (tcp->state) {
+        case TCP_STATE_CLOSED:
+            log_info(LOG_TCP, "tcp already closed");
+            tcp_free(tcp);
+            return NET_OK;
+        case TCP_STATE_SYN_RECVD:
+        case TCP_STATE_SYN_SENT:        // connection has not been established, abort and free tcb
+            tcp_abort(tcp, NET_ERR_CLOSED);
+            tcp_free(tcp);
+            return NET_OK;
+        case TCP_STATE_CLOSE_WAIT:
+            // send fin, enter last_ack and wait for ack
+            tcp_send_fin(tcp);
+            tcp_set_state(tcp, TCP_STATE_LAST_ACK);
+            return NET_ERR_NEED_WAIT;
+        default:
+            // other states, return error
+            log_error(LOG_TCP, "tcp state error[%s]: send is not allowed", tcp_state_name(tcp->state));
+            return NET_ERR_STATE;
+    }
 }

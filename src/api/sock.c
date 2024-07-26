@@ -294,7 +294,11 @@ net_err_t sock_close_req_in (func_msg_t* api_msg) {
     }
     sock_t* sock = s->sock;
     net_err_t err = sock->ops->close(sock);
-    socket_free(s);
+    // there might be tcp close handshake in progress, wait on the socket
+    if (err == NET_ERR_NEED_WAIT) {
+        sock_wait_add(sock->conn_wait, sock->rcv_tmo, req);
+        return err;
+    }
     return err;
 }
 

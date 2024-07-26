@@ -141,8 +141,9 @@ typedef struct _tcp_t {
 
     // these flags are used to assist keep track of the state of the tcp connection
     struct {
-        uint32_t syn_out : 1;
-        uint32_t irs_valid : 1;    // this is to denote that we have set the recv window variables
+        uint32_t syn_out : 1;        // need to send SYN
+        uint32_t fin_out : 1;        // need to send FIN
+        uint32_t irs_valid : 1;      // this is to denote that we have set the recv window variables
     } flags;
 
     // checkout RFC 793 Figure 4

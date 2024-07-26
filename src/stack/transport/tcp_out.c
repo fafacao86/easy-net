@@ -93,9 +93,7 @@ net_err_t tcp_send_reset(tcp_seg_t * seg) {
 
 
 /**
- *
- * transmit TCP segment and move seq forward,
- * and set egress segment flags based on the connection flags in the socket
+ * send an empty segment with flags specified in socket
  */
 net_err_t tcp_transmit(tcp_t * tcp) {
     packet_t* buf = packet_alloc(sizeof(tcp_hdr_t));
@@ -112,6 +110,7 @@ net_err_t tcp_transmit(tcp_t * tcp) {
     hdr->flags = 0;
     hdr->f_syn = tcp->flags.syn_out;
     hdr->f_ack = tcp->flags.irs_valid;
+    hdr->f_fin = tcp->flags.fin_out;
     hdr->win = 1024;
     hdr->urgptr = 0;
     tcp_set_hdr_size(hdr, buf->total_size);
@@ -176,4 +175,14 @@ net_err_t tcp_send_ack(tcp_t* tcp, tcp_seg_t * seg) {
     // the connection might have not been established yet,
     // so we use the remote_ip in the seg instead of the remote_ip in the socket
     return send_out(out, buf, &seg->remote_ip, &seg->local_ip);
+}
+
+
+/**
+ * send pure FIN
+ */
+net_err_t tcp_send_fin (tcp_t* tcp) {
+    tcp->flags.fin_out = 1;
+    tcp_transmit(tcp);
+    return NET_OK;
 }
