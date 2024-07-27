@@ -91,11 +91,52 @@ net_err_t tcp_send_reset(tcp_seg_t * seg) {
 }
 
 
+/**
+ * calculate the length of data to be sent (not including FIN and SYN)
+ */
+static void get_send_info (tcp_t * tcp, int * doff, int * dlen) {
+    *doff = tcp->snd.nxt - tcp->snd.una;
+    *dlen = tcp_buf_cnt(&tcp->snd.buf) - *doff;
+    if (*dlen == 0) {
+        return;
+    }
+}
+
 
 /**
- * send an empty segment with flags specified in socket
+ * copy data from socket buffer to packet buffer
+ */
+static int copy_send_data (tcp_t * tcp, packet_t * packet, int doff, int dlen) {
+    if (dlen == 0) {
+        return 0;
+    }
+    net_err_t err = packet_resize(packet, (int)(packet->total_size + dlen));
+    if (err < 0) {
+        log_error(LOG_TCP, "pktbuf resize error");
+        return -1;
+    }
+
+    int hdr_size = tcp_hdr_size((tcp_hdr_t *)packet_data(packet));
+    packet_reset_pos(packet);
+    packet_seek(packet, hdr_size);
+    tcp_buf_read_send(&tcp->snd.buf, doff, packet, dlen);
+    return dlen;
+}
+
+
+/**
+ * send an segment with flags specified in socket
+ * data to be sent is copied from socket buffer to packet buffer
  */
 net_err_t tcp_transmit(tcp_t * tcp) {
+    int dlen, doff;
+    // calculate the length of data to be sent (not including FIN and SYN)
+    // doff is the offset of the first byte to be sent
+    // dlen is the length of the data to be sent
+    get_send_info(tcp, &doff, &dlen);
+    if (dlen < 0) {
+        return NET_OK;
+    }
     packet_t* buf = packet_alloc(sizeof(tcp_hdr_t));
     if (!buf) {
         log_error(LOG_TCP, "no buffer");
@@ -114,8 +155,9 @@ net_err_t tcp_transmit(tcp_t * tcp) {
     hdr->win = 1024;
     hdr->urgptr = 0;
     tcp_set_hdr_size(hdr, buf->total_size);
+    copy_send_data(tcp, buf, doff, dlen);
     // move the seq forward
-    tcp->snd.nxt += hdr->f_syn + hdr->f_fin;
+    tcp->snd.nxt += dlen + hdr->f_syn + hdr->f_fin;
     return send_out(hdr, buf, &tcp->base.remote_ip, &tcp->base.local_ip);
 }
 
@@ -193,4 +235,17 @@ net_err_t tcp_send_fin (tcp_t* tcp) {
     return NET_OK;
 }
 
+
+
+int tcp_write_sndbuf(tcp_t * tcp, const uint8_t * buf, int len) {
+    int free_cnt = tcp_buf_free_cnt(&tcp->snd.buf);
+    if (free_cnt <= 0) {
+        // if there is no free space in the send buffer, return 0
+        return 0;
+    }
+    // actual length to write, might be less than len
+    int wr_len = (len > free_cnt) ? free_cnt : len;
+    tcp_buf_write_send(&tcp->snd.buf, buf, wr_len);
+    return wr_len;
+}
 

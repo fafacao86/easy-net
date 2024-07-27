@@ -73,6 +73,7 @@ static tcp_t* tcp_alloc(int wait, int family, int protocol) {
     static const sock_ops_t tcp_ops = {
             .connect = tcp_connect,
             .close = tcp_close,
+            .send = tcp_send,
     };
     tcp_t* tcp = tcp_get_free(wait);
     if (!tcp) {
@@ -190,6 +191,7 @@ static uint32_t tcp_get_iss(void) {
  * and generate a new initial sequence number (iss)
  * */
 static net_err_t tcp_init_connect(tcp_t * tcp) {
+    tcp_buf_init(&tcp->snd.buf, tcp->snd.data, TCP_SBUF_SIZE);
     tcp->snd.iss = tcp_get_iss();
     tcp->snd.una = tcp->snd.nxt = tcp->snd.iss;
     tcp->rcv.nxt = 0;
@@ -316,5 +318,50 @@ net_err_t tcp_close(sock_t* sock) {
             // other states, return error
             log_error(LOG_TCP, "tcp state error[%s]: send is not allowed", tcp_state_name(tcp->state));
             return NET_ERR_STATE;
+    }
+}
+
+
+/**
+ * only allowed in ESTABLISHED or CLOSE_WAIT state
+ */
+net_err_t tcp_send (struct _sock_t* sock, const void* buf, size_t len, int flags, ssize_t * result_len) {
+    tcp_t* tcp = (tcp_t*)sock;
+
+    switch (tcp->state) {
+        case TCP_STATE_CLOSED:
+            log_error(LOG_TCP, "tcp closed: send is not allowed");
+            return NET_ERR_CLOSED;
+        case TCP_STATE_FIN_WAIT_1:
+        case TCP_STATE_FIN_WAIT_2:
+        case TCP_STATE_CLOSING:
+        case TCP_STATE_TIME_WAIT:
+        case TCP_STATE_LAST_ACK:
+            // active close, do not allow to send data anymore
+            log_error(LOG_TCP, "tcp closed[%s]: send is not allowed", tcp_state_name(tcp->state));
+            return NET_ERR_CLOSED;
+        case TCP_STATE_ESTABLISHED:
+        case TCP_STATE_CLOSE_WAIT: {
+            // established or passive close, send data
+            break;
+        }
+        case TCP_STATE_LISTEN:
+        case TCP_STATE_SYN_RECVD:
+        case TCP_STATE_SYN_SENT:
+        default:
+            // do not allow data piggybacking in SYN, though it is allowed in RFC 793
+            // BSD sockets do not support data piggybacking in SYN neither
+            log_error(LOG_TCP, "tcp state error[%s]: send is not allowed", tcp_state_name(tcp->state));
+            return NET_ERR_STATE;
+    }
+    ssize_t size = tcp_write_sndbuf(tcp, (uint8_t *)buf, (int)len);
+    if (size <= 0) {
+        // when buffer is full, wait for data to be sent and acked
+        *result_len = 0;
+        return NET_ERR_NEED_WAIT;
+    } else {
+        *result_len = size;
+        tcp_transmit(tcp);
+        return NET_OK;
     }
 }

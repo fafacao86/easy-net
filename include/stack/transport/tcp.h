@@ -3,6 +3,7 @@
 #include "net_errors.h"
 #include "sock.h"
 #include "log.h"
+#include "tcp_buf.h"
 /**
  * https://datatracker.ietf.org/doc/html/rfc793
  *
@@ -148,6 +149,8 @@ typedef struct _tcp_t {
 
     // checkout RFC 793 Figure 4
     struct {
+        tcp_buf_t buf;      // send buffer
+        uint8_t  data[TCP_SBUF_SIZE];
         uint32_t una;	    // send unacknowledged
         uint32_t nxt;	    // seq that hasn't been sent yet
         uint32_t iss;	    // initial send sequence number
@@ -187,4 +190,6 @@ int tcp_hdr_size (tcp_hdr_t * hdr);
 net_err_t tcp_close(struct _sock_t* sock);
 net_err_t tcp_connect(struct _sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len);
 net_err_t tcp_abort (tcp_t * tcp, int err);
+net_err_t tcp_send (struct _sock_t* sock, const void* buf, size_t len, int flags, ssize_t * result_len);
+
 #endif //EASY_NET_TCP_H
