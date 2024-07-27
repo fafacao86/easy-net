@@ -48,14 +48,14 @@ int main (void) {
 //    udp_echo_server_start(2000);
 //    udp_echo_client_start(friend0_ip, 1000);
     tcp_echo_client_start("192.168.74.3", 1200);
-    char cmd[32], param[32];
-    while (1) {
-        show_help();
-        printf(">>");
-        scanf("%s %s", cmd, param);
-        ping_t p;
-        if (strcmp(cmd, "ping") == 0) {
-            ping_run(&p, param, 4, 1000, 1000);
-        }
-    }
+//    char cmd[32], param[32];
+//    while (1) {
+//        show_help();
+//        printf(">>");
+//        scanf("%s %s", cmd, param);
+//        ping_t p;
+//        if (strcmp(cmd, "ping") == 0) {
+//            ping_run(&p, param, 4, 1000, 1000);
+//        }
+//    }
 }

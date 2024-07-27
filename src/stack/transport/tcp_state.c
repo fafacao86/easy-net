@@ -37,10 +37,6 @@ const char * tcp_state_name (tcp_state_t state) {
 }
 
 
-
-
-
-
 /**
  * set TCP state and log it
  */
@@ -100,6 +96,7 @@ net_err_t tcp_syn_sent_in(tcp_t *tcp, tcp_seg_t *seg) {
 
     // check SYN, in this state, we handle only SYN+ACK(reply for our SYN) or SYN(simultaneous open)
     if (tcp_hdr->f_syn) {
+        tcp_read_options(tcp, tcp_hdr);
         // set recv window variables
         tcp->rcv.iss = tcp_hdr->seq;            // there is IRS in the SYN
         tcp->rcv.nxt = tcp_hdr->seq + 1;        // the received SYN is accounted for one byte
@@ -157,6 +154,7 @@ net_err_t tcp_established_in(tcp_t *tcp, tcp_seg_t *seg) {
     // process data, including FIN, in this function, ACK might be sent
     tcp_data_in(tcp, seg);
 
+    tcp_transmit(tcp);
     // TODO: check if all data has been received, only then, enter the CLOSE_WAIT state
     if (tcp_hdr->f_fin) {
         tcp_set_state(tcp, TCP_STATE_CLOSE_WAIT);
@@ -171,6 +169,23 @@ net_err_t tcp_established_in(tcp_t *tcp, tcp_seg_t *seg) {
  * we can send data to the remote, but we don't need to receive any data
  */
 net_err_t tcp_close_wait_in (tcp_t * tcp, tcp_seg_t * seg) {
+    tcp_hdr_t *tcp_hdr = seg->hdr;
+
+    if (tcp_hdr->f_rst) {
+        log_warning(LOG_TCP, "%s: recieve a rst", tcp_state_name(tcp->state));
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    if (tcp_hdr->f_syn) {
+        log_warning(LOG_TCP, "%s: recieve a syn", tcp_state_name(tcp->state));
+        tcp_send_reset(seg);
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    if (tcp_ack_process(tcp, seg) < 0) {
+        log_warning(LOG_TCP, "%s:  dump ack %d ?", tcp_state_name(tcp->state), seg->hdr->ack);
+        return NET_ERR_UNREACH;
+    }
+    // flush buffer
+    tcp_transmit(tcp);
     return NET_OK;
 }
 
@@ -199,7 +214,10 @@ net_err_t tcp_last_ack_in (tcp_t * tcp, tcp_seg_t * seg) {
     }
 
     // TODO: ack might be for data not for FIN, check it and ensure all data has been acked
-    return tcp_abort(tcp, NET_ERR_CLOSED);
+    if (tcp->flags.fin_out ==0) {
+        return tcp_abort(tcp, NET_ERR_CLOSED);
+    }
+    return NET_OK;
 }
 
 
@@ -209,7 +227,6 @@ net_err_t tcp_last_ack_in (tcp_t * tcp, tcp_seg_t * seg) {
  */
 void tcp_time_wait (tcp_t * tcp) {
 }
-
 
 
 
@@ -238,7 +255,9 @@ net_err_t tcp_fin_wait_1_in(tcp_t * tcp, tcp_seg_t * seg) {
     }
     // because in this state, it is half-close, we can still receive data from the remote
     tcp_data_in(tcp, seg);
+    tcp_transmit(tcp);
     // checkout tcp_ack_process, if receive ack for FIN, it sets fin_out to 0
+    log_info(LOG_TCP, "fin_out %d and tcp_hdr_fin %d", tcp->flags.fin_out, tcp_hdr->f_fin);
     if (tcp->flags.fin_out == 0) {
         if (tcp_hdr->f_fin) {
             // this is for merged three-way hand wave
@@ -288,8 +307,27 @@ net_err_t tcp_fin_wait_2_in(tcp_t * tcp, tcp_seg_t * seg) {
  * used in simultaneous close
  */
 net_err_t tcp_closing_in (tcp_t * tcp, tcp_seg_t * seg) {
+    tcp_hdr_t *tcp_hdr = seg->hdr;
+    if (tcp_hdr->f_rst) {
+        log_warning(LOG_TCP, "%s: recieve a rst", tcp_state_name(tcp->state));
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    if (tcp_hdr->f_syn) {
+        log_warning(LOG_TCP, "%s: recieve a syn", tcp_state_name(tcp->state));
+        tcp_send_reset(seg);
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    if (tcp_ack_process(tcp, seg) < 0) {
+        log_warning(LOG_TCP, "%s:  ack process failed", tcp_state_name(tcp->state));
+        return NET_ERR_UNREACH;
+    }
+    tcp_transmit(tcp);
+    if (tcp->flags.fin_out ==0) {
+        tcp_time_wait(tcp);
+    }
     return NET_OK;
 }
+
 
 /**
  * TIME_WAIT

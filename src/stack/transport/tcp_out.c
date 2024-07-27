@@ -100,6 +100,8 @@ static void get_send_info (tcp_t * tcp, int * doff, int * dlen) {
     if (*dlen == 0) {
         return;
     }
+    // if the data length is greater than the MSS, then set it to the MSS
+    *dlen = (*dlen > tcp->mss) ? tcp->mss : *dlen;
 }
 
 
@@ -137,6 +139,17 @@ net_err_t tcp_transmit(tcp_t * tcp) {
     if (dlen < 0) {
         return NET_OK;
     }
+    int seq_len = dlen;
+    if (tcp->flags.syn_out) {
+        seq_len++;
+    }
+    if ((tcp_buf_cnt(&tcp->snd.buf) == 0) && tcp->flags.fin_out) {
+        seq_len++;
+    }
+    // this is to prevent duplicate empty ACKs, but allow empty FIN and SYN
+    if (seq_len == 0) {
+        return NET_OK;
+    }
     packet_t* buf = packet_alloc(sizeof(tcp_hdr_t));
     if (!buf) {
         log_error(LOG_TCP, "no buffer");
@@ -151,7 +164,10 @@ net_err_t tcp_transmit(tcp_t * tcp) {
     hdr->flags = 0;
     hdr->f_syn = tcp->flags.syn_out;
     hdr->f_ack = tcp->flags.irs_valid;
-    hdr->f_fin = tcp->flags.fin_out;
+    // if the buffer is not empty, do not send FIN
+    if (tcp->flags.fin_out) {
+        hdr->f_fin = (tcp_buf_cnt(&tcp->snd.buf) == 0) ? 1 : 0;
+    }
     hdr->win = 1024;
     hdr->urgptr = 0;
     tcp_set_hdr_size(hdr, buf->total_size);
@@ -189,6 +205,7 @@ net_err_t tcp_ack_process (tcp_t * tcp, tcp_seg_t * seg) {
     int acked_cnt = tcp_hdr->ack - tcp->snd.una;
     int unacked_cnt = tcp->snd.nxt - tcp->snd.una;
     int curr_acked = (acked_cnt > unacked_cnt) ? unacked_cnt : acked_cnt;
+    log_info(LOG_TCP, "curr_acked %d, unacked %d acked %d", curr_acked, unacked_cnt, acked_cnt);
     if (curr_acked > 0) {
         tcp->snd.una += curr_acked;
         curr_acked -= tcp_buf_remove(&tcp->snd.buf, curr_acked);
