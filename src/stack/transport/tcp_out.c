@@ -185,12 +185,19 @@ net_err_t tcp_ack_process (tcp_t * tcp, tcp_seg_t * seg) {
         tcp->snd.una++;
         tcp->flags.syn_out = 0;
     }
-
-    // clear the fin_out flag, if received ack for the FIN
-    if (tcp->flags.fin_out && (tcp_hdr->ack - tcp->snd.una > 0)) {
-        tcp->flags.fin_out = 0;
+    // remove data in the buffer that has been acknowledged
+    int acked_cnt = tcp_hdr->ack - tcp->snd.una;
+    int unacked_cnt = tcp->snd.nxt - tcp->snd.una;
+    int curr_acked = (acked_cnt > unacked_cnt) ? unacked_cnt : acked_cnt;
+    if (curr_acked > 0) {
+        tcp->snd.una += curr_acked;
+        curr_acked -= tcp_buf_remove(&tcp->snd.buf, curr_acked);
+        // if the ack is for FIN, then clear the fin_out flag
+        if (curr_acked && (tcp->flags.fin_out)) {
+            tcp->flags.fin_out = 0;
+        }
+        sock_wakeup(&tcp->base, SOCK_WAIT_WRITE, NET_OK);
     }
-
     return NET_OK;
 }
 

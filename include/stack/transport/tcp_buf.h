@@ -32,5 +32,6 @@ static inline int tcp_buf_free_cnt(tcp_buf_t * buf) {
 static inline int tcp_buf_cnt (tcp_buf_t * buf) {
     return buf->count;
 }
+int tcp_buf_remove(tcp_buf_t * buf, int cnt);
 
 #endif //EASY_NET_TCP_BUF_H

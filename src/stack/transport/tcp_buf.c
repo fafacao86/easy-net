@@ -53,3 +53,19 @@ void tcp_buf_read_send(tcp_buf_t * buf, int offset, packet_t * dest, int count) 
         count -= copy_size;
     }
 }
+
+
+/**
+ * remove cnt bytes starting from out from buffer
+ */
+int tcp_buf_remove(tcp_buf_t * buf, int cnt) {
+    if (cnt > buf->count) {
+        cnt = buf->count;
+    }
+    buf->out += cnt;
+    if (buf->out >= buf->size) {
+        buf->out -= buf->size;
+    }
+    buf->count -= cnt;
+    return cnt;
+}

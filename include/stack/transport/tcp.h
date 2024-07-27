@@ -54,7 +54,20 @@
  *
  * */
 
+#define TCP_OPT_END        0
+#define TCP_OPT_NOP        1
+#define TCP_OPT_MSS        2
+
 #pragma pack(1)
+typedef struct _tcp_opt_mss_t {
+    uint8_t kind;
+    uint8_t length;
+    union {
+        uint16_t mss;
+    };
+}tcp_opt_mss_t;
+
+
 typedef struct _tcp_hdr_t {
     uint16_t sport;
     uint16_t dport;
@@ -139,6 +152,7 @@ typedef struct _tcp_t {
     struct {
         sock_wait_t wait;       // wait_t for connection establishment
     } conn;
+    int mss;
 
     // these flags are used to assist keep track of the state of the tcp connection
     struct {
