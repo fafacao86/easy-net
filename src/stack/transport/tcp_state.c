@@ -4,7 +4,7 @@
 
 /**
  * RFC 793 Page 64
- * int the chapter SEGMENT ARRIVES, there is detailed information about
+ * in the chapter SEGMENT ARRIVES, there is detailed information about
  * how to process input segment in each state.
  * */
 
@@ -55,6 +55,10 @@ void tcp_set_state (tcp_t * tcp, tcp_state_t state) {
   segment.
  */
 net_err_t tcp_closed_in(tcp_t *tcp, tcp_seg_t *seg) {
+    if (seg->hdr->f_rst == 0) {
+        log_warning(LOG_TCP, "%s: recieve a rst", tcp ? tcp_state_name(tcp->state) : "unknown");
+        tcp_send_reset(seg);
+    }
     return NET_OK;
 }
 
@@ -152,7 +156,6 @@ net_err_t tcp_established_in(tcp_t *tcp, tcp_seg_t *seg) {
     if (tcp_hdr->f_fin) {
         tcp_set_state(tcp, TCP_STATE_CLOSE_WAIT);
     }
-
     return NET_OK;
 }
 
@@ -230,16 +233,22 @@ net_err_t tcp_fin_wait_1_in(tcp_t * tcp, tcp_seg_t * seg) {
     }
     // because in this state, it is half-close, we can still receive data from the remote
     tcp_data_in(tcp, seg);
-    if (tcp_hdr->f_fin) {
+    // checkout tcp_ack_process, if receive ack for FIN, it sets fin_out to 0
+    if (tcp->flags.fin_out == 0) {
+        if (tcp_hdr->f_fin) {
+            // this is for merged three-way hand wave
+            tcp_time_wait(tcp);
+        } else {
+            tcp_set_state(tcp, TCP_STATE_FIN_WAIT_2);
+            //sock_wakeup(tcp, SOCK_WAIT_CONN, NET_ERR_OK);
+        }
+    } else if (tcp_hdr->f_fin) {
         // this is for simultaneous close
-        tcp_time_wait(tcp);
-    } else {
-        // no FIN, just ack for our FIN, enter FIN_WAIT_2 state
-        tcp_set_state(tcp, TCP_STATE_FIN_WAIT_2);
-        //sock_wakeup(tcp, SOCK_WAIT_CONN, NET_ERR_OK);
+        tcp_set_state(tcp, TCP_STATE_CLOSING);
     }
     return NET_OK;
 }
+
 
 /**
  * FIN_WAIT_2
@@ -282,6 +291,26 @@ net_err_t tcp_closing_in (tcp_t * tcp, tcp_seg_t * seg) {
  * in this state, we have received a FIN from the remote, and sent an ACK
  */
 net_err_t tcp_time_wait_in (tcp_t * tcp, tcp_seg_t * seg) {
+    tcp_hdr_t *tcp_hdr = seg->hdr;
+    if (tcp_hdr->f_rst) {
+        log_warning(LOG_TCP, "%s: recieve a rst", tcp_state_name(tcp->state));
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    if (tcp_hdr->f_syn) {
+        log_warning(LOG_TCP, "%s: recieve a syn", tcp_state_name(tcp->state));
+        tcp_send_reset(seg);
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    if (tcp_ack_process(tcp, seg) < 0) {
+        log_warning(LOG_TCP, "%s:  ack process failed", tcp_state_name(tcp->state));
+        return NET_ERR_UNREACH;
+    }
+    tcp_data_in(tcp, seg);
+    // send ack for final FIN, reset the timer, ignore other segments
+    if (tcp_hdr->f_fin) {
+        tcp_send_ack(tcp, seg);
+        tcp_time_wait(tcp);
+    }
     return NET_OK;
 }
 

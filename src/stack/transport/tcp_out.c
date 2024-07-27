@@ -132,6 +132,7 @@ net_err_t tcp_send_syn(tcp_t* tcp) {
 /**
  * seg is an input segment, which has ACK flag set
  * we need to update window variables based on it
+ * and clear flags in socket when corresponding ack received
  * */
 net_err_t tcp_ack_process (tcp_t * tcp, tcp_seg_t * seg) {
     tcp_hdr_t * tcp_hdr = seg->hdr;
@@ -141,6 +142,11 @@ net_err_t tcp_ack_process (tcp_t * tcp, tcp_seg_t * seg) {
     if (tcp->flags.syn_out) {
         tcp->snd.una++;
         tcp->flags.syn_out = 0;
+    }
+
+    // clear the fin_out flag, if received ack for the FIN
+    if (tcp->flags.fin_out && (tcp_hdr->ack - tcp->snd.una > 0)) {
+        tcp->flags.fin_out = 0;
     }
 
     return NET_OK;

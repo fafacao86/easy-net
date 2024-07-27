@@ -120,6 +120,5 @@ net_err_t tcp_data_in (tcp_t * tcp, tcp_seg_t * seg) {
         tcp_send_ack(tcp, seg);
     }
 
-    // 还要给对方发送响应
     return NET_OK;
 }
