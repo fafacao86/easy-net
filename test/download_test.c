@@ -2,6 +2,7 @@
 #include <string.h>
 #include "net_plat.h"
 #include "net_api.h"
+#include "log.h"
 
 /**
  * TCP download test
@@ -41,6 +42,8 @@ void download_test (const char * filename, int port) {
     }
     printf("rcv file size: %d\n", (int)total_size);
     printf("rcv file ok\n");
+//    rcv_size = recv(sockfd, buf, sizeof(buf), 0);
+//    log_info(LOG_TCP ,"rcv_size: %d", rcv_size);
     close(sockfd);
     fclose(file);
     return;

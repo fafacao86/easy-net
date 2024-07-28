@@ -223,6 +223,7 @@ ssize_t x_recv(int sockfd, void* buf, size_t len, int flags) {
         }
         err = sock_wait_enter(req.wait, req.wait_tmo);
         if(err == NET_ERR_CLOSED){
+            log_warning(LOG_SOCKET, "connection closed by remote");
             return 0;
         }
         if (err < 0) {
