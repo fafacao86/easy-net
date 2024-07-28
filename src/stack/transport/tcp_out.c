@@ -13,6 +13,26 @@ void tcp_set_hdr_size (tcp_hdr_t * hdr, int size) {
 }
 
 /**
+ * here we only set MSS
+ * */
+static void write_sync_option (tcp_t * tcp, packet_t * buf) {
+    int opt_len = sizeof(tcp_opt_mss_t);
+    net_err_t err = packet_resize(buf, buf->total_size + opt_len);
+    if (err < 0) {
+        log_error(LOG_TCP, "resize error");
+        return;
+    }
+    tcp_opt_mss_t mss;
+    mss.kind = TCP_OPT_MSS;
+    mss.length = sizeof(tcp_opt_mss_t);
+    mss.mss = e_ntohs(tcp->mss);
+    packet_reset_pos(buf);
+    packet_seek(buf, sizeof(tcp_hdr_t));
+    packet_write(buf, (uint8_t *)&mss, sizeof(mss));
+}
+
+
+/**
  * convert endianness of tcp header, and calculate checksum
  * then send via ipv4_out
  * */
@@ -168,7 +188,10 @@ net_err_t tcp_transmit(tcp_t * tcp) {
     if (tcp->flags.fin_out) {
         hdr->f_fin = (tcp_buf_cnt(&tcp->snd.buf) == 0) ? 1 : 0;
     }
-    hdr->win = 1024;
+    if (hdr->f_syn) {
+        write_sync_option(tcp, buf);
+    }
+    hdr->win = (uint16_t)tcp_rcv_window(tcp);
     hdr->urgptr = 0;
     tcp_set_hdr_size(hdr, buf->total_size);
     copy_send_data(tcp, buf, doff, dlen);
@@ -239,9 +262,8 @@ net_err_t tcp_send_ack(tcp_t* tcp, tcp_seg_t * seg) {
     out->ack = tcp->rcv.nxt;
     out->flags = 0;
     out->f_ack = 1;
-    out->win = 0;
     out->urgptr = 0;
-    out->win = 1024;
+    out->win = (uint16_t)tcp_rcv_window(tcp);
     tcp_set_hdr_size(out, sizeof(tcp_hdr_t));
 
     // the connection might have not been established yet,

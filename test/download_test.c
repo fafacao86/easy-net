@@ -35,6 +35,7 @@ void download_test (const char * filename, int port) {
         fwrite(buf, 1, rcv_size, file);
         printf(".");
         total_size += rcv_size;
+        sys_sleep(500);
     }
     if (rcv_size < 0) {
         printf("rcv file size: %d\n", (int)total_size);

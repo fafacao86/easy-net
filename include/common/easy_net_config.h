@@ -87,5 +87,5 @@
 #define TCP_MAX_NR               50                // maximum number of tcp sockets
 #define TCP_SBUF_SIZE            100000               // size of the send buffer of a tcp socket
 #define TCP_RBUF_SIZE            2048               // size of the receive buffer of a tcp socket
-
+#define TCP_MSS                   1460               // maximum segment size
 #endif

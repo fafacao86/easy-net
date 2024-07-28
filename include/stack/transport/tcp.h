@@ -184,6 +184,12 @@ typedef struct _tcp_t {
 } tcp_t;
 
 
+int inline tcp_rcv_window (tcp_t * tcp) {
+    int window = tcp_buf_free_cnt(&tcp->rcv.buf);
+    return window;
+}
+
+
 #if LOG_DISP_ENABLED(LOG_TCP)
 void tcp_show_info (char * msg, tcp_t * tcp);
 void tcp_display_pkt (char * msg, tcp_hdr_t * tcp_hdr, packet_t * buf);

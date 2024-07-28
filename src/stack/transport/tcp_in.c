@@ -49,6 +49,7 @@ net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
         log_error(LOG_TCP, "set cont failed.");
         return -1;
     }
+    tcp_hdr = (tcp_hdr_t *)packet_data(buf);
     if (tcp_hdr->checksum) {
         packet_reset_pos(buf);
         if (checksum_peso(dest_ip->a_addr, src_ip->a_addr, NET_PROTOCOL_TCP, buf)) {
