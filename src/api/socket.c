@@ -222,6 +222,9 @@ ssize_t x_recv(int sockfd, void* buf, size_t len, int flags) {
             return (ssize_t)req.data.comp_len;
         }
         err = sock_wait_enter(req.wait, req.wait_tmo);
+        if(err == NET_ERR_CLOSED){
+            return 0;
+        }
         if (err < 0) {
             log_error(LOG_SOCKET, "recv failed %d.", err);
             return -1;

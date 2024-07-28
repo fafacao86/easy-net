@@ -21,6 +21,7 @@ void tcp_buf_init(tcp_buf_t* buf, uint8_t * data, int size);
 void tcp_buf_write_send(tcp_buf_t * dest, const uint8_t * buffer, int len);
 void tcp_buf_read_send(tcp_buf_t * src, int offset, packet_t * dest, int count);
 int tcp_buf_write_rcv(tcp_buf_t * dest, int offset, packet_t * src, int size);
+int tcp_buf_read_rcv (tcp_buf_t * src, uint8_t * buf, int size);
 
 static inline int tcp_buf_size (tcp_buf_t * buf) {
     return buf->size;

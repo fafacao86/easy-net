@@ -98,3 +98,19 @@ int tcp_buf_write_rcv(tcp_buf_t * dest, int offset, packet_t * src, int total) {
     dest->in = start;
     return total;
 }
+
+
+
+int tcp_buf_read_rcv (tcp_buf_t * src, uint8_t * buf, int size) {
+    int total = size > src->count ? src->count : size;
+    int curr_size = 0;
+    while (curr_size < total) {
+        *buf++ = src->data[src->out++];
+        if (src->out >= src->size) {
+            src->out = 0;
+        }
+        src->count--;
+        curr_size++;
+    }
+    return total;
+}
