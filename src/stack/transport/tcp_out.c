@@ -217,7 +217,14 @@ net_err_t tcp_send_syn(tcp_t* tcp) {
  * */
 net_err_t tcp_ack_process (tcp_t * tcp, tcp_seg_t * seg) {
     tcp_hdr_t * tcp_hdr = seg->hdr;
-
+    // una < ack <= nxt, remember ack is the seq number 'expected' next
+    if (TCP_SEQ_LE(tcp_hdr->ack, tcp->snd.una)) {
+        // if the ack is for old data, just ignore it
+        return NET_OK;
+    } else if (TCP_SEQ_LT(tcp->snd.nxt, tcp_hdr->ack)) {
+        // if the ack is for future data, throw error
+        return NET_ERR_UNREACH;
+    }
     // set the syn_out flag to 0,
     // because we have received the first ACK for the connection
     if (tcp->flags.syn_out) {

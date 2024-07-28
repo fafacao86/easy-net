@@ -28,9 +28,51 @@ void tcp_seg_init (tcp_seg_t * seg, packet_t * buf, ipaddr_t * local, ipaddr_t *
 }
 
 
+/**
+ * RFC 793:
+ * Segment Receive  Test
+ * Length  Window
+ * ------- -------  -------------------------------------------
+ *    0       0     SEG.SEQ = RCV.NXT
+ *    0      >0     RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
+ *   >0       0     not acceptable
+ *   >0      >0     RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
+ *                  or RCV.NXT =< SEG.SEQ+SEG.LEN-1 < RCV.NXT+RCV.WND
+ * */
+static int tcp_seq_acceptable(tcp_t *tcp, tcp_seg_t *seg) {
+    uint32_t rcv_win = tcp_rcv_window(tcp);
+
+    if (seg->seq_len == 0) {
+        if (rcv_win == 0) {
+            // 0(len)   0(win)     SEG.SEQ = RCV.NXT
+            return seg->seq == tcp->rcv.nxt;
+        } else {
+            // window is not empty, if seq is within the window, it's acceptable
+            // 0(len)   >0(win)     RCV.NXT =< SEG.SEQ < RCV.NXT+RCV.WND
+            int v = TCP_SEQ_LE(tcp->rcv.nxt, seg->seq) && TCP_SEQ_LE(seg->seq, tcp->rcv.nxt + rcv_win - 1);
+            return v;
+        }
+    } else {
+        if (rcv_win == 0) {
+            return 0;
+        } else {
+            // as long as there is overlap with the window, it's acceptable
+            // which is head is within the window, or tail is within the window
+            uint32_t slast = seg->seq + seg->seq_len - 1;       // slast is the tail
+            int v = TCP_SEQ_LE(tcp->rcv.nxt, seg->seq) && TCP_SEQ_LE(seg->seq, tcp->rcv.nxt + rcv_win - 1);
+            //int v = (seg->seq - tcp->rcv.nxt >= 0) && ((seg->seq - (tcp->rcv.nxt + rcv_win)) < 0);
+            v |= TCP_SEQ_LE(tcp->rcv.nxt, slast) && TCP_SEQ_LE(slast, tcp->rcv.nxt + rcv_win - 1);
+            // v |= (slast - tcp->rcv.nxt >= 0) && ((slast - (tcp->rcv.nxt + rcv_win)) < 0);
+            return v;
+        }
+    }
+}
+
+
 
 /**
  * handle a TCP packet
+ * firstly check seq, if it is acceptable, then process the segment according to the state
  */
 net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
     static const tcp_proc_t tcp_state_proc[] = {
@@ -94,8 +136,16 @@ net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
         log_error(LOG_TCP, "seek failed.");
         return NET_ERR_SIZE;
     }
+    // these states are the first time to receive data from remote, so no need to check seq
+    if ((tcp->state != TCP_STATE_CLOSED)  && (tcp->state != TCP_STATE_SYN_SENT) && (tcp->state != TCP_STATE_LISTEN)) {
+        if (!tcp_seq_acceptable(tcp, &seg)) {
+            log_info(LOG_TCP, "seq incorrect: %d < %d", seg.seq, tcp->rcv.nxt);
+            goto seg_drop;
+        }
+    }
     tcp_state_proc[tcp->state](tcp, &seg);
     tcp_show_info("after tcp in", tcp);
+seg_drop:
     packet_free(buf);
     return NET_OK;
 }
