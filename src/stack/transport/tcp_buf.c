@@ -69,3 +69,32 @@ int tcp_buf_remove(tcp_buf_t * buf, int cnt) {
     buf->count -= cnt;
     return cnt;
 }
+
+
+/**
+ * extract data in packet, write to recv buffer
+ */
+int tcp_buf_write_rcv(tcp_buf_t * dest, int offset, packet_t * src, int total) {
+    int start = dest->in + offset;
+    if (start >= dest->size) {
+        start = start - dest->size;
+    }
+    int free_size = tcp_buf_free_cnt(dest) - offset;
+    total = (total > free_size) ? free_size : total;
+
+    int size = total;
+    while (size > 0) {
+        int free_to_end = dest->size - start;
+
+        int curr_copy = size > free_to_end ? free_to_end : size;
+        packet_read(src, dest->data + start, (int)curr_copy);
+        start += curr_copy;
+        if (start >= dest->size) {
+            start = start - dest->size;
+        }
+        dest->count += curr_copy;
+        size -= curr_copy;
+    }
+    dest->in = start;
+    return total;
+}

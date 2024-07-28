@@ -449,11 +449,9 @@ static net_err_t ip_normal_in(netif_t* netif, packet_t* packet, ipaddr_t* src, i
             if (err < 0) {
                 log_warning(LOG_IP, "raw in error. err = %d\n", err);
             }
-            return NET_ERR_UNREACH;
-            break;
+            return NET_OK;
         }
     }
-    return NET_ERR_NOT_SUPPORT;
 }
 
 

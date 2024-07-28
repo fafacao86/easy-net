@@ -81,15 +81,37 @@ net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
         log_error(LOG_TCP, "no tcp found: port = %d", tcp_hdr->dport);
         tcp_send_reset(&seg);
         packet_free(buf);
-
         tcp_show_list();
         return NET_OK;
     }
+    net_err_t err = packet_seek(buf, tcp_hdr_size(tcp_hdr));
+    if (err < 0) {
+        log_error(LOG_TCP, "seek failed.");
+        return NET_ERR_SIZE;
+    }
     tcp_state_proc[tcp->state](tcp, &seg);
     tcp_show_info("after tcp in", tcp);
+    packet_free(buf);
     return NET_OK;
 }
 
+
+/**
+ * copy data to receive buffer
+ * here we need to handle the case of out-of-order segment and hole and retransmit
+ * */
+static int copy_data_to_rcvbuf(tcp_t * tcp, tcp_seg_t * seg) {
+    tcp_hdr_t * tcp_hdr = seg->hdr;
+    packet_t * buf = seg->buf;
+    // TODO: support hole and out-of-order segment
+    int doffset = seg->seq - tcp->rcv.nxt;
+    if (seg->data_len && (doffset == 0)) {
+        // copy data to rcv buffer, we do not support hole yet
+        // tcp_buf_write_rcv() will truncate the data if it is too long
+        return tcp_buf_write_rcv(&tcp->rcv.buf, doffset, buf, seg->data_len);
+    }
+    return 0;
+}
 
 
 
@@ -98,6 +120,11 @@ net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
  * if there is FIN, send ACK
  */
 net_err_t tcp_data_in (tcp_t * tcp, tcp_seg_t * seg) {
+    int size = copy_data_to_rcvbuf(tcp, seg);
+    if (size < 0) {
+        log_error(LOG_TCP, "copy data to tcp rcvbuf failed.");
+        return NET_ERR_SIZE;
+    }
     // wake up or not
     int wakeup = 0;
 

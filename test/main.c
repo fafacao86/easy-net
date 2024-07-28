@@ -47,7 +47,8 @@ int main (void) {
     //test_net_api();
 //    udp_echo_server_start(2000);
 //    udp_echo_client_start(friend0_ip, 1000);
-    tcp_echo_client_start("192.168.74.3", 1200);
+    //tcp_echo_client_start("192.168.74.3", 1200);
+    download_test("a.txt", 1200);
 //    char cmd[32], param[32];
 //    while (1) {
 //        show_help();

@@ -173,6 +173,8 @@ typedef struct _tcp_t {
 
     // checkout RFC 793 Figure 5
     struct {
+        tcp_buf_t buf;      // receive buffer
+        uint8_t  data[TCP_RBUF_SIZE];
         uint32_t nxt;	    // the seq number of the next expected packet
         uint32_t iss;	    // initial receive sequence number
         sock_wait_t wait;   // rcv wait structure
@@ -205,5 +207,5 @@ net_err_t tcp_close(struct _sock_t* sock);
 net_err_t tcp_connect(struct _sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len);
 net_err_t tcp_abort (tcp_t * tcp, int err);
 net_err_t tcp_send (struct _sock_t* sock, const void* buf, size_t len, int flags, ssize_t * result_len);
-
+net_err_t tcp_recv (struct _sock_t* s, void* buf, size_t len, int flags, ssize_t * result_len);
 #endif //EASY_NET_TCP_H

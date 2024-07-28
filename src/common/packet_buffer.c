@@ -573,7 +573,7 @@ int packet_read(packet_t* packet, uint8_t* dest, int size){
 
     int remain_size = total_packet_remain(packet);
     if (remain_size < size) {
-        log_error(LOG_PACKET_BUFFER, "size errorL %d < %d", remain_size, size);
+        log_error(LOG_PACKET_BUFFER, "size error %d < %d", remain_size, size);
         return NET_ERR_SIZE;
     }
 
