@@ -68,6 +68,53 @@ static tcp_t * tcp_get_free (int wait) {
     return tcp;
 }
 
+net_err_t tcp_setopt(struct _sock_t* sock,  int level, int optname, const char * optval, int optlen) {
+    // more general options are handled by sock_setopt
+    net_err_t err = sock_setopt(sock, level, optname, optval, optlen);
+    if (err == NET_OK) {
+        return NET_OK;
+    } else if ((err < 0) && (err != NET_ERR_NOT_SUPPORT)) {
+        return err;
+    }
+    tcp_t * tcp = (tcp_t *)sock;
+    if (level == SOL_SOCKET) {
+        if (optlen != sizeof(int)) {
+            log_error(LOG_TCP, "param size error");
+            return NET_ERR_PARAM;
+        }
+        tcp->flags.keep_enable = *(int *)optval;
+    } else if (level == SOL_TCP) {
+        switch (optname) {
+            case TCP_KEEPIDLE:
+                if (optlen != sizeof(int)) {
+                    log_error(LOG_TCP, "param size error");
+                    return NET_ERR_PARAM;
+                }
+                tcp->conn.keep_idle = *(int *)optval;
+                return NET_OK;
+            case TCP_KEEPINTVL:
+                if (optlen != sizeof(int)) {
+                    log_error(LOG_TCP, "param size error");
+                    return NET_ERR_PARAM;
+                }
+                tcp->conn.keep_intvl = *(int *)optval;
+                return NET_OK;
+            case TCP_KEEPCNT:
+                if (optlen != sizeof(int)) {
+                    log_error(LOG_TCP, "param size error");
+                    return NET_ERR_PARAM;
+                }
+                tcp->conn.keep_cnt = *(int *)optval;
+                return NET_OK;
+            default:
+                log_error(LOG_TCP, "unknown param");
+                break;
+        }
+    }
+    return NET_ERR_PARAM;
+}
+
+
 
 static tcp_t* tcp_alloc(int wait, int family, int protocol) {
     static const sock_ops_t tcp_ops = {
@@ -75,6 +122,7 @@ static tcp_t* tcp_alloc(int wait, int family, int protocol) {
             .close = tcp_close,
             .send = tcp_send,
             .recv = tcp_recv,
+            .setopt = tcp_setopt,
     };
     tcp_t* tcp = tcp_get_free(wait);
     if (!tcp) {
@@ -88,6 +136,10 @@ static tcp_t* tcp_alloc(int wait, int family, int protocol) {
         memory_pool_free(&tcp_mblock, tcp);
         return (tcp_t*)0;
     }
+    tcp->flags.keep_enable = 0;
+    tcp->conn.keep_idle = TCP_KEEPALIVE_TIME;
+    tcp->conn.keep_intvl = TCP_KEEPALIVE_INTVL;
+    tcp->conn.keep_cnt = TCP_KEEPALIVE_PROBES;
     tcp->state = TCP_STATE_CLOSED;
     // sender and receiver window variables
     tcp->snd.una = tcp->snd.nxt = tcp->snd.iss = 0;

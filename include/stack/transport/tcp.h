@@ -4,6 +4,7 @@
 #include "sock.h"
 #include "log.h"
 #include "tcp_buf.h"
+#include "timer.h"
 /**
  * https://datatracker.ietf.org/doc/html/rfc793
  *
@@ -151,6 +152,11 @@ typedef struct _tcp_t {
     sock_t base;
     struct {
         sock_wait_t wait;       // wait_t for connection establishment
+        int keep_idle;
+        int keep_intvl;
+        int keep_cnt;         // number of keepalive retries
+        int keep_retry;         // current remaining retries
+        net_timer_t keep_timer; // timer for keepalive and retry
     } conn;
     int mss;
 
@@ -160,7 +166,10 @@ typedef struct _tcp_t {
         uint32_t fin_out: 1;        // need to send FIN
         uint32_t irs_valid: 1;      // this is to denote that we have set the recv window variables
         uint32_t fin_in: 1;         // received FIN, this means we have received all the data and the FIN
+        uint32_t keep_enable : 1;     // keep-alive enabled
     } flags;
+
+
     // checkout RFC 793 Figure 4
     struct {
         tcp_buf_t buf;      // send buffer

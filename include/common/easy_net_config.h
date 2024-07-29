@@ -88,4 +88,7 @@
 #define TCP_SBUF_SIZE            100000               // size of the send buffer of a tcp socket
 #define TCP_RBUF_SIZE            2048               // size of the receive buffer of a tcp socket
 #define TCP_MSS                   1460               // maximum segment size
+#define TCP_KEEPALIVE_TIME              (2*60*60)   // Keepalive IDLE time, RFC1122 suggests at least 2 hours
+#define TCP_KEEPALIVE_PROBES            10          // Keepalive retry count
+#define TCP_KEEPALIVE_INTVL             75           // Keepalive retry interval
 #endif

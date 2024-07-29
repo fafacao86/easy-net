@@ -28,6 +28,14 @@ void download_test (const char * filename, int port) {
         printf("connect error\n");
         goto failed;
     }
+    int keepalive = 1;
+    int keepidle = 5;
+    int keepinterval = 1;
+    int keepcount = 10;
+    setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive , sizeof(keepalive ));
+    setsockopt(sockfd, SOL_TCP, TCP_KEEPIDLE, (void*)&keepidle , sizeof(keepidle ));
+    setsockopt(sockfd, SOL_TCP, TCP_KEEPINTVL, (void *)&keepinterval , sizeof(keepinterval ));
+    setsockopt(sockfd, SOL_TCP, TCP_KEEPCNT, (void *)&keepcount , sizeof(keepcount ));
     char buf[8192];
     ssize_t total_size = 0;
     int rcv_size;

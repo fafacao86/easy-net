@@ -37,13 +37,23 @@ int x_bind(int sid, const struct x_sockaddr* addr, x_socklen_t len);
 // sockopt level
 #undef SOL_SOCKET
 #define SOL_SOCKET              0
+#undef SOL_TCP
+#define SOL_TCP                 1
+
 
 // sockopt name
 #undef SO_RCVTIMEO
 #define SO_RCVTIMEO             1            // ms
 #undef SO_SNDTIMEO
 #define SO_SNDTIMEO             2            // ms
-
+#undef SO_KEEPALIVE
+#define SO_KEEPALIVE            3            // Keepalive enable
+#undef TCP_KEEPIDLE
+#define TCP_KEEPIDLE            4           // Keepalive idle
+#undef TCP_KEEPINTVL
+#define TCP_KEEPINTVL           5           // timout interval
+#undef TCP_KEEPCNT
+#define TCP_KEEPCNT             6           // retry count
 
 #pragma pack(1)
 /**
