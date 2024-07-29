@@ -189,13 +189,15 @@ net_err_t tcp_data_in (tcp_t * tcp, tcp_seg_t * seg) {
         wakeup++;
     }
     tcp_hdr_t * tcp_hdr = seg->hdr;
-    if (tcp_hdr->f_fin) {
+    // rcv.next == fin_seg.seq means the recv window is empty, all data has been received
+    if (tcp_hdr->f_fin && (tcp->rcv.nxt == seg->seq)) {
         tcp->rcv.nxt++;
+        tcp->flags.fin_in = 1;
         wakeup++;
     }
     // if there is data, notify the application
     if (wakeup) {
-        if (tcp_hdr->f_fin) {
+        if (tcp->flags.fin_in) {
             sock_wakeup((sock_t *)tcp, SOCK_WAIT_ALL, NET_ERR_CLOSED);
         } else {
             sock_wakeup((sock_t *)tcp, SOCK_WAIT_READ, NET_OK);

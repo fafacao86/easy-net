@@ -155,8 +155,7 @@ net_err_t tcp_established_in(tcp_t *tcp, tcp_seg_t *seg) {
     tcp_data_in(tcp, seg);
 
     tcp_transmit(tcp);
-    // TODO: check if all data has been received, only then, enter the CLOSE_WAIT state
-    if (tcp_hdr->f_fin) {
+    if (tcp->flags.fin_in) {
         tcp_set_state(tcp, TCP_STATE_CLOSE_WAIT);
     }
     return NET_OK;
@@ -257,16 +256,16 @@ net_err_t tcp_fin_wait_1_in(tcp_t * tcp, tcp_seg_t * seg) {
     tcp_data_in(tcp, seg);
     tcp_transmit(tcp);
     // checkout tcp_ack_process, if receive ack for FIN, it sets fin_out to 0
-    log_info(LOG_TCP, "fin_out %d and tcp_hdr_fin %d", tcp->flags.fin_out, tcp_hdr->f_fin);
+    log_info(LOG_TCP, "fin_out %d and tcp_hdr_fin %d", tcp->flags.fin_out, tcp->flags.fin_in);
     if (tcp->flags.fin_out == 0) {
-        if (tcp_hdr->f_fin) {
+        if (tcp->flags.fin_in) {
             // this is for merged three-way hand wave
             tcp_time_wait(tcp);
         } else {
             tcp_set_state(tcp, TCP_STATE_FIN_WAIT_2);
             //sock_wakeup(tcp, SOCK_WAIT_CONN, NET_ERR_OK);
         }
-    } else if (tcp_hdr->f_fin) {
+    } else if (tcp->flags.fin_in) {
         // this is for simultaneous close
         tcp_set_state(tcp, TCP_STATE_CLOSING);
     }
@@ -296,7 +295,7 @@ net_err_t tcp_fin_wait_2_in(tcp_t * tcp, tcp_seg_t * seg) {
         return NET_ERR_UNREACH;
     }
     tcp_data_in(tcp, seg);
-    if (tcp_hdr->f_fin) {
+    if (tcp->flags.fin_in) {
         tcp_time_wait(tcp);
     }
     return NET_OK;
@@ -350,7 +349,7 @@ net_err_t tcp_time_wait_in (tcp_t * tcp, tcp_seg_t * seg) {
     }
     tcp_data_in(tcp, seg);
     // send ack for final FIN, reset the timer, ignore other segments
-    if (tcp_hdr->f_fin) {
+    if (tcp->flags.fin_in) {
         tcp_send_ack(tcp, seg);
         tcp_time_wait(tcp);
     }
