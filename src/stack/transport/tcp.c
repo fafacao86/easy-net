@@ -163,6 +163,52 @@ net_err_t tcp_setopt(struct _sock_t* sock,  int level, int optname, const char *
  * bind a local port to listen
  */
 net_err_t tcp_bind(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len) {
+    tcp_t * tcp = (tcp_t *)sock;
+    // check state
+    if (tcp->state != TCP_STATE_CLOSED) {
+        log_error(LOG_TCP, "tcp is not closed. connect is not allowed");
+        return NET_ERR_STATE;
+    }
+    if (sock->local_port != NET_PORT_EMPTY) {
+        log_error(LOG_UDP, "already binded.");
+        return NET_ERR_PARAM;
+    }
+    const struct x_sockaddr_in* addr_in = (const struct x_sockaddr_in*)addr;
+    if (addr_in->sin_port == NET_PORT_EMPTY) {
+        log_error(LOG_TCP, "port is emptry");
+        return NET_ERR_PARAM;
+    }
+    ipaddr_t local_ip;
+    ipaddr_from_buf(&local_ip, (const uint8_t*)&addr_in->sin_addr);
+    if (!ipaddr_is_any(&local_ip)) {
+        // check if the ipaddr is valid, if there
+        rentry_t* rt = rt_find(&local_ip);
+        if (rt == (rentry_t*)0) {
+            log_error(LOG_TCP, "ipaddr error, no netif has this ip");
+            return NET_ERR_ADDR;
+        }
+        if (!ipaddr_is_equal(&local_ip, &rt->netif->ipaddr)) {
+            log_error(LOG_TCP, "ipaddr error");
+            return NET_ERR_ADDR;
+        }
+    }
+    // check if the port is binded
+    list_node_t * node;
+    list_for_each(node, &tcp_list) {
+        sock_t * curr = (sock_t *)list_entry(node, sock_t, node);
+        // if the remote_port is not empty, it means the socket is for connection
+        // not for listening, so we should skip it.
+        if ((sock == curr) || (curr->remote_port != NET_PORT_EMPTY)) {
+            continue;
+        }
+//        log_info(LOG_TCP, "port in use %d and try to bind port %d", curr->local_port, addr_in->sin_port);
+        if (ipaddr_is_equal(&curr->local_ip, &local_ip) && (curr->local_port == addr_in->sin_port)) {
+            log_error(LOG_TCP, "ipaddr and port already used");
+            return NET_ERR_ADDR;
+        }
+    }
+    ipaddr_copy(&sock->local_ip, &local_ip);
+    sock->local_port = e_ntohs(addr_in->sin_port);
     return NET_OK;
 }
 

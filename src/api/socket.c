@@ -262,11 +262,45 @@ int x_bind(int sockfd, const struct x_sockaddr* addr, x_socklen_t len) {
 
 
 
+
 int x_accept(int sockfd, struct x_sockaddr* addr, x_socklen_t* len) {
-    return 0;
+    if (!addr || !len) {
+        log_error(LOG_SOCKET, "addr len error");
+        return -1;
+    }
+    while (1) {
+        sock_req_t req;
+        req.sockfd = sockfd;
+        req.wait = 0;
+        req.accept.addr = addr;
+        req.accept.len = len;
+        req.accept.client = -1;
+        net_err_t err = exmsg_func_exec(sock_accept_req_in, &req);
+        if (err < 0) {
+            log_error(LOG_SOCKET, "accept failed: %d ", err);
+            return -1;
+        }
+        if (req.accept.client >= 0) {
+            log_error(LOG_SOCKET, "get new connection");
+            return req.accept.client;
+        }
+        if (req.wait && ((err = sock_wait_enter(req.wait, req.wait_tmo)) < NET_OK)) {
+            log_error(LOG_SOCKET, "connect failed %d.", err);
+            return -1;
+        }
+    }
 }
 
 
 int x_listen(int sockfd, int backlog) {
+    sock_req_t req;
+    req.wait = 0;
+    req.sockfd = sockfd;
+    req.listen.backlog = backlog;
+    net_err_t err = exmsg_func_exec(sock_listen_req_in, &req);
+    if (err < 0) {
+        log_error(LOG_SOCKET, "listen failed: %d", err);
+        return -1;
+    }
     return 0;
 }

@@ -107,6 +107,18 @@ typedef struct _sock_bind_t {
 }sock_bind_t;
 
 
+typedef struct _sock_listen_t {
+    int backlog;
+}sock_listen_t;
+
+typedef struct _sock_accept_t {
+    struct x_sockaddr* addr;
+    x_socklen_t * len;
+    int client;  // sockfd of the new client
+}sock_accept_t;
+
+
+
 /**
  * API Request structure
  */
@@ -121,6 +133,8 @@ typedef struct _sock_req_t {
         sock_opt_t opt;
         sock_conn_t conn;
         sock_bind_t bind;
+        sock_listen_t listen;
+        sock_accept_t accept;
     };
 }sock_req_t;
 
@@ -132,6 +146,8 @@ net_err_t sock_connect_req_in (func_msg_t* api_msg);
 net_err_t sock_send_req_in (func_msg_t * api_msg);
 net_err_t sock_recv_req_in(func_msg_t * api_msg);
 net_err_t sock_bind_req_in(func_msg_t * api_msg);
+net_err_t sock_listen_req_in(func_msg_t * api_msg);
+net_err_t sock_accept_req_in(func_msg_t * api_msg);
 
 net_err_t sock_connect(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len);
 net_err_t sock_init(sock_t* sock, int family, int protocol, const sock_ops_t * ops);

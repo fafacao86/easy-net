@@ -435,3 +435,12 @@ net_err_t sock_bind(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len
     return NET_OK;
 }
 
+net_err_t sock_listen_req_in(func_msg_t * api_msg) {
+    return NET_OK;
+}
+
+
+net_err_t sock_accept_req_in(func_msg_t * api_msg) {
+    return NET_OK;
+}
+
