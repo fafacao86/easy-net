@@ -239,7 +239,7 @@ net_err_t sock_setsockopt_req_in(func_msg_t * api_msg) {
 net_err_t sock_setopt(struct _sock_t* sock,  int level, int optname, const char * optval, int optlen) {
     // socket options only support SOL_SOCKET level
     if (level != SOL_SOCKET) {
-        log_error(LOG_SOCKET, "unknow level: %d", level);
+        //log_error(LOG_SOCKET, "unknow level: %d", level);
         return NET_ERR_NOT_SUPPORT;
     }
 

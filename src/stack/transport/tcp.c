@@ -56,6 +56,47 @@ void tcp_show_list (void) {
 #endif
 
 
+static void tcp_keepalive_tmo(struct _net_timer_t* timer, void * arg) {
+    tcp_t * tcp = (tcp_t *)arg;
+    if (++tcp->conn.keep_retry <= tcp->conn.keep_cnt) {
+        tcp_send_keepalive(tcp);
+        net_timer_remove(&tcp->conn.keep_timer);
+        net_timer_add(&tcp->conn.keep_timer, "keepalive", tcp_keepalive_tmo, tcp, tcp->conn.keep_intvl*1000, 0);
+        log_info(LOG_TCP, "tcp keepalive tmo, retrying: %d", tcp->conn.keep_retry);
+    } else {
+        tcp_send_reset_for_tcp(tcp);
+        tcp_abort(tcp, NET_ERR_TIMEOUT);
+        log_error(LOG_TCP, "tcp keepalive tmo, give up");
+    }
+}
+
+
+static void keepalive_start_timer (tcp_t * tcp) {
+    tcp->conn.keep_retry = 0;
+    net_timer_add(&tcp->conn.keep_timer, "keepalive", tcp_keepalive_tmo, tcp, tcp->conn.keep_idle*1000, 0);
+    log_info(LOG_TCP, "tcp keepalive enabled.");
+}
+
+void tcp_keepalive_start (tcp_t * tcp, int run) {
+    if (tcp->flags.keep_enable && !run) {
+        net_timer_remove(&tcp->conn.keep_timer);
+        log_info(LOG_TCP, "keepalive disabled");
+    } else if (!tcp->flags.keep_enable && run) {
+        keepalive_start_timer(tcp);
+    }
+    tcp->flags.keep_enable = run;
+}
+
+
+void tcp_keepalive_restart (tcp_t * tcp) {
+    if (tcp->flags.keep_enable) {
+        net_timer_remove(&tcp->conn.keep_timer);
+        keepalive_start_timer(tcp);
+        tcp->conn.keep_retry = 0;
+    }
+}
+
+
 
 /**
  * allocate a new tcp socket, if all used, reuse those in time_wait state
@@ -83,6 +124,7 @@ net_err_t tcp_setopt(struct _sock_t* sock,  int level, int optname, const char *
             return NET_ERR_PARAM;
         }
         tcp->flags.keep_enable = *(int *)optval;
+        tcp_keepalive_start(tcp, *(int *)optval);
     } else if (level == SOL_TCP) {
         switch (optname) {
             case TCP_KEEPIDLE:
@@ -91,6 +133,7 @@ net_err_t tcp_setopt(struct _sock_t* sock,  int level, int optname, const char *
                     return NET_ERR_PARAM;
                 }
                 tcp->conn.keep_idle = *(int *)optval;
+                tcp_keepalive_restart(tcp);
                 return NET_OK;
             case TCP_KEEPINTVL:
                 if (optlen != sizeof(int)) {
@@ -98,6 +141,7 @@ net_err_t tcp_setopt(struct _sock_t* sock,  int level, int optname, const char *
                     return NET_ERR_PARAM;
                 }
                 tcp->conn.keep_intvl = *(int *)optval;
+                tcp_keepalive_restart(tcp);
                 return NET_OK;
             case TCP_KEEPCNT:
                 if (optlen != sizeof(int)) {
@@ -105,6 +149,7 @@ net_err_t tcp_setopt(struct _sock_t* sock,  int level, int optname, const char *
                     return NET_ERR_PARAM;
                 }
                 tcp->conn.keep_cnt = *(int *)optval;
+                tcp_keepalive_restart(tcp);
                 return NET_OK;
             default:
                 log_error(LOG_TCP, "unknown param");

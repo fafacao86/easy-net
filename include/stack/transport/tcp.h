@@ -224,6 +224,12 @@ net_err_t tcp_abort (tcp_t * tcp, int err);
 net_err_t tcp_send (struct _sock_t* sock, const void* buf, size_t len, int flags, ssize_t * result_len);
 net_err_t tcp_recv (struct _sock_t* s, void* buf, size_t len, int flags, ssize_t * result_len);
 
+
+void tcp_keepalive_start (tcp_t * tcp, int run);
+void tcp_keepalive_restart (tcp_t * tcp);
+void tcp_kill_all_timers (tcp_t * tcp);
+
+
 #define TCP_SEQ_LE(a, b)        ((int32_t)(a) - (int32_t)(b) <= 0)
 #define TCP_SEQ_LT(a, b)        ((int32_t)(a) - (int32_t)(b) < 0)
 

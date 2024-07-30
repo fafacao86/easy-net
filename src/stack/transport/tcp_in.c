@@ -143,6 +143,7 @@ net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
             goto seg_drop;
         }
     }
+    tcp_keepalive_restart(tcp);
     tcp_state_proc[tcp->state](tcp, &seg);
     tcp_show_info("after tcp in", tcp);
 seg_drop:
