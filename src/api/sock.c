@@ -436,11 +436,54 @@ net_err_t sock_bind(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len
 }
 
 net_err_t sock_listen_req_in(func_msg_t * api_msg) {
-    return NET_OK;
+    sock_req_t * req = (sock_req_t *)api_msg->param;
+    x_socket_t* s = get_socket(req->sockfd);
+    if (!s) {
+        log_error(LOG_SOCKET, "param error: socket = %d.", s);
+        return NET_ERR_PARAM;
+    }
+    sock_t* sock = s->sock;
+    sock_listen_t * listen = (sock_listen_t *)&req->listen;
+    if (!sock->ops->listen) {
+        log_error(LOG_SOCKET, "this function is not implemented");
+        return NET_ERR_NOT_SUPPORT;
+    }
+    return sock->ops->listen(sock, listen->backlog);
 }
 
 
 net_err_t sock_accept_req_in(func_msg_t * api_msg) {
+    sock_req_t * req = (sock_req_t *)api_msg->param;
+    x_socket_t* s = get_socket(req->sockfd);
+    if (!s) {
+        log_error(LOG_SOCKET, "param error: socket = %d.", s);
+        return NET_ERR_PARAM;
+    }
+    sock_t* sock = s->sock;
+    sock_accept_t * accept = (sock_accept_t *)&req->accept;
+
+    if (!sock->ops->accept) {
+        log_error(LOG_SOCKET, "this function is not implemented");
+        return NET_ERR_NOT_SUPPORT;
+    }
+    sock_t * client = (sock_t *)0;
+    net_err_t err = sock->ops->accept(sock, accept->addr, accept->len, &client);
+    if (err < 0) {
+        log_error(LOG_SOCKET, "accept error: %d", err);
+        return err;
+    } else if (err == NET_ERR_NEED_WAIT) {
+        if (sock->conn_wait) {
+            sock_wait_add(sock->conn_wait, sock->rcv_tmo, req);
+        }
+    } else {
+        x_socket_t * child_socket = socket_alloc();
+        if (child_socket == (x_socket_t *)0) {
+            log_error(LOG_SOCKET, "no socket");
+            return NET_ERR_NONE;
+        }
+        child_socket->sock = client;
+        accept->client = get_index(child_socket);
+    }
     return NET_OK;
 }
 

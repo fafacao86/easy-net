@@ -2,6 +2,7 @@
 #include "sys_plat.h"
 #include "tcp_echo_server.h"
 #include "net_api.h"
+#include "log.h"
 
 void tcp_echo_server_start(int port) {
     plat_printf("tcp server start, port = %d\n", port);
@@ -35,7 +36,9 @@ void tcp_echo_server_start(int port) {
     while (1) {
         struct sockaddr_in client_addr;
         socklen_t addr_len = sizeof(client_addr);
+        log_info(LOG_TCP, "waiting for client connection");
         int client = accept(s,  (struct sockaddr*)&client_addr, &addr_len);
+        log_info(LOG_TCP, "client connected");
         if (client < 0) {
             printf("accept error");
             break;

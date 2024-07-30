@@ -222,6 +222,8 @@ static tcp_t* tcp_alloc(int wait, int family, int protocol) {
             .recv = tcp_recv,
             .setopt = tcp_setopt,
             .bind = tcp_bind,
+            .listen = tcp_listen,
+            .accept = tcp_accept,
     };
     tcp_t* tcp = tcp_get_free(wait);
     if (!tcp) {
@@ -554,3 +556,48 @@ net_err_t tcp_recv (struct _sock_t* s, void* buf, size_t len, int flags, ssize_t
     }
     return need_wait;
 }
+
+
+
+net_err_t tcp_listen (struct _sock_t* s, int backlog) {
+    tcp_t * tcp = (tcp_t *)s;
+    if (backlog <= 0) {
+        log_error(LOG_TCP, "backlog(%d) <= 0", backlog);
+        return NET_ERR_PARAM;
+    }
+    if (tcp->state != TCP_STATE_CLOSED) {
+        log_error(LOG_TCP, "tcp is not closed. listen is not allowed");
+        return NET_ERR_STATE;
+    }
+    tcp->state = TCP_STATE_LISTEN;
+    tcp->conn.backlog = backlog;
+    return NET_OK;
+}
+
+
+
+net_err_t tcp_accept (struct _sock_t *s, struct x_sockaddr* addr, x_socklen_t* len, struct _sock_t ** client) {
+    list_node_t * node;
+    list_for_each(node, &tcp_list) {
+        sock_t * sock = list_entry(node, sock_t, node);
+        tcp_t * tcp = (tcp_t *)sock;
+
+        if ((sock == s) || (tcp->parent != (tcp_t *)s)) {
+            continue;
+        }
+        // 属于自己的子child，且处于非激活状态
+        if (tcp->flags.inactive) {
+            struct x_sockaddr_in * addr_in = (struct x_sockaddr_in *)addr;
+            plat_memset(addr_in, 0, sizeof(struct x_sockaddr_in));
+            addr_in->sin_family = AF_INET;
+            addr_in->sin_port = e_htons(tcp->base.remote_port);
+            ipaddr_to_buf(&tcp->base.remote_ip, (uint8_t *)&addr_in->sin_addr.s_addr);
+            if (len) {
+                *len = sizeof(struct x_sockaddr_in);
+            }
+            tcp->flags.inactive = 0;
+            *client = (sock_t *)tcp;
+            return NET_OK;
+        }
+    }
+    return NET_ERR_NEED_WAIT;}

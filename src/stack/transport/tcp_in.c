@@ -184,7 +184,6 @@ net_err_t tcp_data_in (tcp_t * tcp, tcp_seg_t * seg) {
     log_info(LOG_TCP, "tcp data in: %d bytes", size);
     // wake up or not
     int wakeup = 0;
-    // TODO: check before ack FIN
     if (size) {
         tcp->rcv.nxt += size ;
         wakeup++;

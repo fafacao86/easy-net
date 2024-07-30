@@ -357,4 +357,40 @@ net_err_t tcp_time_wait_in (tcp_t * tcp, tcp_seg_t * seg) {
 }
 
 
+/**
+ * LISTEN state
+ * when received unexpected segment, do not abort, send rst and remain in LISTEN
+ *
+ * */
+net_err_t tcp_listen_in(tcp_t *tcp, tcp_seg_t *seg) {
+    tcp_hdr_t * tcp_hdr = seg->hdr;
+    if (tcp_hdr->f_rst) {
+        log_warning(LOG_TCP, "%s: recieve a rst", tcp_state_name(tcp->state));
+        return NET_OK;
+    }
+    if (tcp_hdr->f_ack) {
+        log_warning(LOG_TCP, "%s: recieve a ack", tcp_state_name(tcp->state));
+        tcp_send_reset(seg);
+        return NET_OK;
+    }
+    // 处理syn报文，即对方发过来的连接
+    // 创建子进程进行处理，本TCP不做任何处理
+    if (tcp_hdr->f_syn) {
+        // check the backlog
+        if (tcp_backlog_count(tcp) >= tcp->conn.backlog) {
+            log_warning(LOG_TCP, "backlog full");
+            return NET_ERR_FULL;
+        }
+        tcp_t * child = tcp_create_child(tcp, seg);
+        if (child == (tcp_t *)0) {
+            log_warning(LOG_TCP, "error: no tcp for accept");
+            return NET_ERR_MEM;
+        }
+        // ack SYN, enter SYN_RECVD state
+        tcp_send_syn(child);
+        tcp_set_state(child, TCP_STATE_SYN_RECVD);
+        return NET_OK;
+    }
+    return NET_ERR_STATE;
+}
 

@@ -150,6 +150,7 @@ typedef enum _tcp_state_t {
 
 typedef struct _tcp_t {
     sock_t base;
+    struct _tcp_t * parent;
     struct {
         sock_wait_t wait;       // wait_t for connection establishment
         int keep_idle;
@@ -157,6 +158,7 @@ typedef struct _tcp_t {
         int keep_cnt;         // number of keepalive retries
         int keep_retry;         // current remaining retries
         net_timer_t keep_timer; // timer for keepalive and retry
+        int backlog;            // full-connection queue size
     } conn;
     int mss;
 
@@ -167,6 +169,7 @@ typedef struct _tcp_t {
         uint32_t irs_valid: 1;      // this is to denote that we have set the recv window variables
         uint32_t fin_in: 1;         // received FIN, this means we have received all the data and the FIN
         uint32_t keep_enable : 1;     // keep-alive enabled
+        uint32_t inactive : 1;      // this is to determine if the tcb is accepted by user
     } flags;
 
 
@@ -223,7 +226,8 @@ net_err_t tcp_connect(struct _sock_t* sock, const struct x_sockaddr* addr, x_soc
 net_err_t tcp_abort (tcp_t * tcp, int err);
 net_err_t tcp_send (struct _sock_t* sock, const void* buf, size_t len, int flags, ssize_t * result_len);
 net_err_t tcp_recv (struct _sock_t* s, void* buf, size_t len, int flags, ssize_t * result_len);
-
+net_err_t tcp_listen (struct _sock_t* s, int backlog);
+net_err_t tcp_accept (struct _sock_t *s, struct x_sockaddr* addr, x_socklen_t* len, struct _sock_t ** client);
 
 void tcp_keepalive_start (tcp_t * tcp, int run);
 void tcp_keepalive_restart (tcp_t * tcp);
