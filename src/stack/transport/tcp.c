@@ -202,7 +202,7 @@ net_err_t tcp_bind(sock_t* sock, const struct x_sockaddr* addr, x_socklen_t len)
             continue;
         }
 //        log_info(LOG_TCP, "port in use %d and try to bind port %d", curr->local_port, addr_in->sin_port);
-        if (ipaddr_is_equal(&curr->local_ip, &local_ip) && (curr->local_port == addr_in->sin_port)) {
+        if (ipaddr_is_equal(&curr->local_ip, &local_ip) && (curr->local_port == e_ntohs(addr_in->sin_port))) {
             log_error(LOG_TCP, "ipaddr and port already used");
             return NET_ERR_ADDR;
         }
