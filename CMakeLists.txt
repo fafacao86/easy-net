@@ -41,7 +41,9 @@ add_executable(${PROJECT_NAME} ${SOURCE_LIST}
         include/stack/transport/tcp_state.h
         include/stack/transport/tcp_buf.h
         src/stack/transport/tcp_buf.c
-        test/download_test.c)
+        test/download_test.c
+        src/stack/app/echo/tcp_echo_server.h
+        src/stack/app/echo/tcp_echo_server.c)
 
 add_definitions(-DNET_DRIVER_PCAP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)

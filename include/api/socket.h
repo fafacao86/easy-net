@@ -18,7 +18,8 @@ int x_connect(int sid, const struct x_sockaddr* addr, x_socklen_t len);
 ssize_t x_send(int fd, const void* buf, size_t len, int flags);
 ssize_t x_recv(int fd, void* buf, size_t len, int flags);
 int x_bind(int sid, const struct x_sockaddr* addr, x_socklen_t len);
-
+int x_listen(int sockfd, int backlog);
+int x_accept(int sockfd, struct x_sockaddr* addr, x_socklen_t* len);
 
 #undef AF_INET
 #define AF_INET                 0               // IPv4
