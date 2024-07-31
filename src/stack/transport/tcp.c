@@ -105,7 +105,15 @@ void tcp_keepalive_restart (tcp_t * tcp) {
 static tcp_t * tcp_get_free (int wait) {
     tcp_t* tcp = (tcp_t*)memory_pool_alloc(&tcp_mblock, wait ? 0 : -1);
     if (!tcp) {
-        return (tcp_t *)0;
+        list_node_t* node;
+        list_for_each(node, &tcp_list) {
+            tcp_t* s = (tcp_t *)list_entry(node, sock_t, node);
+            if (s->state == TCP_STATE_TIME_WAIT) {
+                tcp_free(s);
+                return (tcp_t*)memory_pool_alloc(&tcp_mblock, -1);
+            }
+        }
+        return 0;
     }
     return tcp;
 }
@@ -225,6 +233,7 @@ static tcp_t* tcp_alloc(int wait, int family, int protocol) {
             .bind = tcp_bind,
             .listen = tcp_listen,
             .accept = tcp_accept,
+            .destroy = tcp_destroy,
     };
     tcp_t* tcp = tcp_get_free(wait);
     if (!tcp) {
@@ -658,4 +667,17 @@ tcp_t * tcp_create_child (tcp_t * parent, tcp_seg_t * seg) {
 
     tcp_insert(child);
     return child;
+}
+
+
+void tcp_destroy (struct _sock_t * sock) {
+    tcp_t * tcp = (tcp_t *)sock;
+    // in TIME_WAIT state, the timer will free the tcb
+    if (tcp->state != TCP_STATE_TIME_WAIT) {
+        tcp_free((tcp_t *)sock);
+    }
+}
+
+void tcp_kill_all_timers (tcp_t * tcp) {
+    net_timer_remove(&tcp->conn.keep_timer);
 }

@@ -91,4 +91,8 @@
 #define TCP_KEEPALIVE_TIME              (2*60*60)   // Keepalive IDLE time, RFC1122 suggests at least 2 hours
 #define TCP_KEEPALIVE_PROBES            10          // Keepalive retry count
 #define TCP_KEEPALIVE_INTVL             75           // Keepalive retry interval
+#define TCP_CLOSE_MAX_TMO               5000         // maximum time to wait for a tcp socket to close, in milliseconds
+#define TCP_TMO_MSL                     5000        // maximum segment lifetime, in milliseconds
+
+
 #endif

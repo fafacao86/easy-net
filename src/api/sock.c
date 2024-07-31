@@ -487,3 +487,17 @@ net_err_t sock_accept_req_in(func_msg_t * api_msg) {
     return NET_OK;
 }
 
+
+
+net_err_t sock_destroy_req_in (func_msg_t* api_msg) {
+    sock_req_t * req = (sock_req_t *)api_msg->param;
+    x_socket_t* s = get_socket(req->sockfd);
+    if (!s) {
+        log_error(LOG_SOCKET, "param error: socket = %d.", s);
+        return NET_ERR_PARAM;
+    }
+    sock_t* sock = s->sock;
+    sock->ops->destroy(sock);
+    socket_free(s);
+    return NET_OK;
+}

@@ -36,6 +36,7 @@ const char * tcp_state_name (tcp_state_t state) {
     return state_name[state];
 }
 
+void tcp_time_wait (tcp_t * tcp);
 
 /**
  * set TCP state and log it
@@ -218,16 +219,6 @@ net_err_t tcp_last_ack_in (tcp_t * tcp, tcp_seg_t * seg) {
     }
     return NET_OK;
 }
-
-
-/**
- * wait for 2 MSL
- * this is to retransmit ACK for peer
- */
-void tcp_time_wait (tcp_t * tcp) {
-}
-
-
 
 /**
  * FIN_WAIT_1
@@ -430,4 +421,27 @@ net_err_t tcp_syn_recvd_in(tcp_t *tcp, tcp_seg_t *seg) {
     }
     tcp_transmit(tcp);
     return NET_OK;
+}
+
+
+
+/**
+ * free tcb after 2MSL timeout
+ */
+void tcp_timewait_tmo (struct _net_timer_t* timer, void * arg) {
+    tcp_t * tcp = (tcp_t *)arg;
+    log_info(LOG_TCP, "tcp free: 2MSL");
+    tcp_show_info("tcp free(2MSL)", tcp);
+    tcp_free(tcp);
+}
+
+/**
+ * wait for 2 MSL
+ * this is to retransmit ACK for peer
+ */
+void tcp_time_wait (tcp_t * tcp) {
+    tcp_set_state(tcp, TCP_STATE_TIME_WAIT);
+    tcp_kill_all_timers(tcp);
+    net_timer_add(&tcp->conn.keep_timer, "2msl timer", tcp_timewait_tmo, tcp, 2 * TCP_TMO_MSL, 0);
+    sock_wakeup(&tcp->base, SOCK_WAIT_ALL, NET_ERR_CLOSED);
 }

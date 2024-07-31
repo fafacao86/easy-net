@@ -129,12 +129,14 @@ int x_close(int sockfd) {
     net_err_t err = exmsg_func_exec(sock_close_req_in, &req);
     if (err < 0) {
         log_error(LOG_SOCKET, "try close failed %d, force delete.", err);
+        exmsg_func_exec(sock_destroy_req_in, &req);
         return -1;
     }
+    // if need wait, wait for TCP_CLOSE_MAX_TMO and then destroy the socket
     if (req.wait) {
-        sock_wait_enter(req.wait, req.wait_tmo);
+        sock_wait_enter(req.wait, TCP_CLOSE_MAX_TMO);
+        exmsg_func_exec(sock_destroy_req_in, &req);
     }
-    // TODO: free tcp_t
     return 0;
 }
 

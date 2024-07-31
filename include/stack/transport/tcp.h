@@ -228,13 +228,13 @@ net_err_t tcp_send (struct _sock_t* sock, const void* buf, size_t len, int flags
 net_err_t tcp_recv (struct _sock_t* s, void* buf, size_t len, int flags, ssize_t * result_len);
 net_err_t tcp_listen (struct _sock_t* s, int backlog);
 net_err_t tcp_accept (struct _sock_t *s, struct x_sockaddr* addr, x_socklen_t* len, struct _sock_t ** client);
-
 void tcp_keepalive_start (tcp_t * tcp, int run);
+void tcp_destroy (struct _sock_t * sock);
 void tcp_keepalive_restart (tcp_t * tcp);
 void tcp_kill_all_timers (tcp_t * tcp);
 int tcp_backlog_count (tcp_t * tcp);
 tcp_t * tcp_create_child (tcp_t * parent, tcp_seg_t * seg);
-
+void tcp_free(tcp_t* tcp);
 #define TCP_SEQ_LE(a, b)        ((int32_t)(a) - (int32_t)(b) <= 0)
 #define TCP_SEQ_LT(a, b)        ((int32_t)(a) - (int32_t)(b) < 0)
 
