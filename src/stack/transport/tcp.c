@@ -594,7 +594,6 @@ net_err_t tcp_accept (struct _sock_t *s, struct x_sockaddr* addr, x_socklen_t* l
         if ((sock == s) || (tcp->parent != (tcp_t *)s)) {
             continue;
         }
-        // 属于自己的子child，且处于非激活状态
         if (tcp->flags.inactive) {
             struct x_sockaddr_in * addr_in = (struct x_sockaddr_in *)addr;
             plat_memset(addr_in, 0, sizeof(struct x_sockaddr_in));

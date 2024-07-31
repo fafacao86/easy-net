@@ -281,7 +281,7 @@ int x_accept(int sockfd, struct x_sockaddr* addr, x_socklen_t* len) {
             return -1;
         }
         if (req.accept.client >= 0) {
-            log_error(LOG_SOCKET, "get new connection");
+            log_info(LOG_SOCKET, "get new connection");
             return req.accept.client;
         }
         if (req.wait && ((err = sock_wait_enter(req.wait, req.wait_tmo)) < NET_OK)) {

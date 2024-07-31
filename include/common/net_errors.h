@@ -23,6 +23,7 @@ typedef enum _net_err_t {
     NET_ERR_RESET = -17, // Connection reset by peer
     NET_ERR_CLOSED = -18, // Connection closed by peer
     NET_ERR_ADDR = -19, // Invalid address
+    NET_ERR_REFUSED = -20, // Connection refused
 }net_err_t;
 
 #endif

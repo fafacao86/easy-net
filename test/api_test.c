@@ -1,5 +1,5 @@
 #include "testcase.h"
-
+#include "net_api.h"
 
 void test_net_api(){
     // test api call with argument

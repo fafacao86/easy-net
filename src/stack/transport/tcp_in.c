@@ -86,6 +86,7 @@ net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
             [TCP_STATE_CLOSE_WAIT] = tcp_close_wait_in,
             [TCP_STATE_LAST_ACK] = tcp_last_ack_in,
             [TCP_STATE_LISTEN] = tcp_listen_in,
+            [TCP_STATE_SYN_RECVD] = tcp_syn_recvd_in,
     };
     tcp_hdr_t * tcp_hdr = (tcp_hdr_t *)packet_data(buf);
     if (packet_set_cont(buf, sizeof(tcp_hdr_t)) < 0) {

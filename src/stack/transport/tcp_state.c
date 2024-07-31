@@ -392,3 +392,42 @@ net_err_t tcp_listen_in(tcp_t *tcp, tcp_seg_t *seg) {
     return NET_ERR_STATE;
 }
 
+
+
+net_err_t tcp_syn_recvd_in(tcp_t *tcp, tcp_seg_t *seg) {
+    tcp_hdr_t * tcp_hdr = seg->hdr;
+    if (tcp_hdr->f_rst) {
+        log_warning(LOG_TCP, "%s: recieve a rst", tcp_state_name(tcp->state));
+        // if passive open, abort
+        if (tcp->parent) {
+            return tcp_abort(tcp, NET_ERR_RESET);
+        } else {
+            return tcp_abort(tcp, NET_ERR_REFUSED);
+        }
+    }
+    if (tcp_hdr->f_syn) {
+        log_warning(LOG_TCP, "%s: recieve a syn", tcp_state_name(tcp->state));
+        tcp_send_reset(seg);
+        return tcp_abort(tcp, NET_ERR_RESET);
+    }
+    if (tcp_ack_process(tcp, seg) < 0) {
+        log_warning(LOG_TCP, "%s:  ack process failed", tcp_state_name(tcp->state));
+        return NET_ERR_UNREACH;
+    }
+    // RFC793
+    if (tcp_hdr->f_fin) {
+        tcp_set_state(tcp, TCP_STATE_CLOSE_WAIT);
+        if (tcp->parent) {
+            sock_wakeup((sock_t *)tcp->parent, SOCK_WAIT_CONN, NET_ERR_REFUSED);
+        }
+    } else {
+        // enter established and start keepalive
+        tcp_set_state(tcp, TCP_STATE_ESTABLISHED);
+        tcp_keepalive_start(tcp, tcp->flags.keep_enable);
+        if (tcp->parent) {
+            sock_wakeup((sock_t *)tcp->parent, SOCK_WAIT_CONN, NET_OK);
+        }
+    }
+    tcp_transmit(tcp);
+    return NET_OK;
+}

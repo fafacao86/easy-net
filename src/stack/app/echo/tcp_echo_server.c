@@ -7,7 +7,7 @@
 void tcp_echo_server_start(int port) {
     plat_printf("tcp server start, port = %d\n", port);
     int s = socket(AF_INET, SOCK_STREAM, 0);
-    int s2 = socket(AF_INET, SOCK_STREAM, 0);
+//    int s2 = socket(AF_INET, SOCK_STREAM, 0);
     if (s < 0) {
         plat_printf("open socket error");
         return;
@@ -21,17 +21,16 @@ void tcp_echo_server_start(int port) {
         plat_printf("connect error");
         goto end;
     }
-
-    struct sockaddr_in server_addr2;
-    plat_memset(&server_addr2, 0, sizeof(server_addr2));
-    server_addr2.sin_family = AF_INET;
-    server_addr2.sin_addr.s_addr = INADDR_ANY;
-    server_addr2.sin_port = htons(port+1);
-    if (bind(s2, (const struct sockaddr*)&server_addr2, sizeof(server_addr2)) < 0) {
-        plat_printf("connect error");
-        goto end;
-    }
-
+//
+//    struct sockaddr_in server_addr2;
+//    plat_memset(&server_addr2, 0, sizeof(server_addr2));
+//    server_addr2.sin_family = AF_INET;
+//    server_addr2.sin_addr.s_addr = INADDR_ANY;
+//    server_addr2.sin_port = htons(port+1);
+//    if (bind(s2, (const struct sockaddr*)&server_addr2, sizeof(server_addr2)) < 0) {
+//        plat_printf("connect error");
+//        goto end;
+//    }
     listen(s, 5);
     while (1) {
         struct sockaddr_in client_addr;
