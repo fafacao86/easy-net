@@ -1,4 +1,4 @@
-#include "tcp.h"
+﻿#include "tcp.h"
 #include "memory_pool.h"
 #include "log.h"
 #include "socket.h"
@@ -7,6 +7,7 @@
 #include "ipv4.h"
 #include "tcp_out.h"
 #include "tcp_state.h"
+#include "tcp_in.h"
 
 
 static tcp_t tcp_tbl[TCP_MAX_NR];
@@ -414,8 +415,16 @@ sock_t* tcp_find(ipaddr_t * local_ip, uint16_t local_port, ipaddr_t * remote_ip,
             ipaddr_is_equal(&s->remote_ip, remote_ip) && (s->remote_port == remote_port)) {
             return s;
         }
+        // for listen socket, if exactly matched, return it, else check for wildcard
+        tcp_t * tcp = (tcp_t *)s;
+        if ((tcp->state == TCP_STATE_LISTEN) && (s->local_port == local_port)) {
+            if (ipaddr_is_equal(&s->local_ip, local_ip)) {
+                return s;
+            } else if (ipaddr_is_any(&s->local_ip)) {
+                match = s;
+            }
+        }
     }
-    // TODO: search for listen socket
     return (sock_t*)match;
 }
 
@@ -600,4 +609,54 @@ net_err_t tcp_accept (struct _sock_t *s, struct x_sockaddr* addr, x_socklen_t* l
             return NET_OK;
         }
     }
-    return NET_ERR_NEED_WAIT;}
+    return NET_ERR_NEED_WAIT;
+}
+
+
+/**
+ * get number of inactive tcp child sockets of a parent tcp socket
+ */
+int tcp_backlog_count (tcp_t * tcp) {
+    int count = 0;
+    list_node_t * node;
+    list_for_each(node, &tcp_list) {
+        sock_t * sock = list_entry(node, sock_t, node);
+        tcp_t * child = (tcp_t *)sock;
+        if ((child->parent == tcp) && (child->flags.inactive)) {
+            count++;
+        }
+    }
+    return count;
+}
+
+
+
+/**
+ * spawn a child tcp socket from a parent tcp socket
+ * and incoming SYN segment to extract window variables
+ */
+tcp_t * tcp_create_child (tcp_t * parent, tcp_seg_t * seg) {
+    tcp_t * child = (tcp_t *)tcp_alloc(0, parent->base.family, parent->base.protocol);
+    if (!child) {
+        log_error(LOG_TCP, "no child tcp");
+        return (tcp_t *)0;
+    }
+    ipaddr_copy(&child->base.local_ip, &seg->local_ip);
+    ipaddr_copy(&child->base.remote_ip, &seg->remote_ip);
+    child->base.local_port = seg->hdr->dport;
+    child->base.remote_port = seg->hdr->sport;
+    child->parent = parent;
+    child->flags.irs_valid = 1;
+    child->flags.inactive = 1;                  // not accepted yet
+    child->conn.backlog = 0;
+
+    tcp_init_connect(child);                    // init send window variables
+    child->rcv.iss = seg->seq;
+    child->rcv.nxt = child->rcv.iss + 1;        // skip the SYN logic byte
+
+    // this is mainly for MSS negotiation
+    tcp_read_options(child, seg->hdr);
+
+    tcp_insert(child);
+    return child;
+}

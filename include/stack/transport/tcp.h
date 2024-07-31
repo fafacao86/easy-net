@@ -232,7 +232,8 @@ net_err_t tcp_accept (struct _sock_t *s, struct x_sockaddr* addr, x_socklen_t* l
 void tcp_keepalive_start (tcp_t * tcp, int run);
 void tcp_keepalive_restart (tcp_t * tcp);
 void tcp_kill_all_timers (tcp_t * tcp);
-
+int tcp_backlog_count (tcp_t * tcp);
+tcp_t * tcp_create_child (tcp_t * parent, tcp_seg_t * seg);
 
 #define TCP_SEQ_LE(a, b)        ((int32_t)(a) - (int32_t)(b) <= 0)
 #define TCP_SEQ_LT(a, b)        ((int32_t)(a) - (int32_t)(b) < 0)

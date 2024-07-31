@@ -373,8 +373,6 @@ net_err_t tcp_listen_in(tcp_t *tcp, tcp_seg_t *seg) {
         tcp_send_reset(seg);
         return NET_OK;
     }
-    // 处理syn报文，即对方发过来的连接
-    // 创建子进程进行处理，本TCP不做任何处理
     if (tcp_hdr->f_syn) {
         // check the backlog
         if (tcp_backlog_count(tcp) >= tcp->conn.backlog) {

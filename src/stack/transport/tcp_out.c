@@ -150,7 +150,7 @@ static int copy_send_data (tcp_t * tcp, packet_t * packet, int doff, int dlen) {
  * send an segment with flags specified in socket
  * data to be sent is copied from socket buffer to packet buffer
  */
-net_err_t tcp_transmit(tcp_t * tcp) {
+net_err_t   tcp_transmit(tcp_t * tcp) {
     int dlen, doff;
     // calculate the length of data to be sent (not including FIN and SYN)
     // doff is the offset of the first byte to be sent

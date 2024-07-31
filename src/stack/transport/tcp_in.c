@@ -85,6 +85,7 @@ net_err_t tcp_in(packet_t *buf, ipaddr_t *src_ip, ipaddr_t *dest_ip) {
             [TCP_STATE_TIME_WAIT] = tcp_time_wait_in,
             [TCP_STATE_CLOSE_WAIT] = tcp_close_wait_in,
             [TCP_STATE_LAST_ACK] = tcp_last_ack_in,
+            [TCP_STATE_LISTEN] = tcp_listen_in,
     };
     tcp_hdr_t * tcp_hdr = (tcp_hdr_t *)packet_data(buf);
     if (packet_set_cont(buf, sizeof(tcp_hdr_t)) < 0) {
@@ -216,14 +217,18 @@ void tcp_read_options(tcp_t *tcp, tcp_hdr_t * tcp_hdr) {
     if (opt_end <= opt_start){
         return;
     }
-    while (opt_start < opt_end) {
+    while (opt_start <= opt_end) {
         tcp_opt_mss_t * opt = (tcp_opt_mss_t *)opt_start;
 
         switch (opt_start[0]) {
             case TCP_OPT_MSS: {
                 if (opt->length == 4) {
                     uint16_t mss = e_ntohs(opt->mss);
-                    tcp->mss = mss;
+                    if (tcp->mss > mss) {
+                        tcp->mss = mss;
+                    }
+                }else {
+                    opt_start++;
                 }
                 opt_start += opt->length;
                 break;
