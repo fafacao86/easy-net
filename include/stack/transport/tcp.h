@@ -59,6 +59,14 @@
 #define TCP_OPT_NOP        1
 #define TCP_OPT_MSS        2
 
+typedef enum _tcp_ostate_t {
+    TCP_OSTATE_IDLE,
+    TCP_OSTATE_SENDING,
+    TCP_OSTATE_REXMIT,
+    TCP_OSTATE_MAX,
+}tcp_ostate_t;
+
+
 #pragma pack(1)
 typedef struct _tcp_opt_mss_t {
     uint8_t kind;
@@ -181,7 +189,15 @@ typedef struct _tcp_t {
         uint32_t nxt;	    // seq that hasn't been sent yet
         uint32_t iss;	    // initial send sequence number
         sock_wait_t wait;   // send wait structure
+
+        tcp_ostate_t ostate;  // sender state
+        int rexmit_cnt;     // retransmit count
+        int rexmit_max;     // max retransmit count
+        net_timer_t timer;    // timer for retransmit
+        int rto;            // Retransmission TimeOut
+
     } snd;
+
 
     // checkout RFC 793 Figure 5
     struct {

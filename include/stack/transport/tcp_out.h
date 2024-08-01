@@ -2,6 +2,11 @@
 #define EASY_NET_TCP_OUT_H
 #include "tcp.h"
 
+typedef enum _tcp_oevent_t {
+    TCP_OEVENT_SEND,            // new send call() event
+    TCP_OEVENT_XMIT,            // transmit buffered data event
+    TCP_OEVENT_TMO,
+}tcp_oevent_t;
 
 net_err_t tcp_send_reset(tcp_seg_t * seg);
 net_err_t tcp_transmit(tcp_t * tcp);

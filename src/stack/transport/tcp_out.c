@@ -4,6 +4,7 @@
 #include "protocols.h"
 #include "ipv4.h"
 #include "log.h"
+#include "tcp_out.h"
 
 /**
  * because the header length unit is 4 bytes
@@ -342,4 +343,58 @@ net_err_t tcp_send_keepalive(tcp_t* tcp) {
     out->urgptr = 0;
     tcp_set_hdr_size(out, sizeof(tcp_hdr_t));
     return send_out(out, buf, &tcp->base.remote_ip, &tcp->base.local_ip);
+}
+
+
+
+const char * tcp_ostate_name (tcp_t * tcp) {
+    static const char * state_name[] = {
+            [TCP_OSTATE_IDLE] = "idle",
+            [TCP_OSTATE_SENDING] = "sending",
+            [TCP_OSTATE_REXMIT] = "resending",
+    };
+
+    return state_name[tcp->snd.ostate >= TCP_OSTATE_MAX ? TCP_OSTATE_MAX : tcp->snd.ostate];
+}
+
+
+
+
+/**
+ * idle
+ */
+static void tcp_ostate_idle_in (tcp_t * tcp, tcp_oevent_t event) {
+
+}
+
+/**
+ * send
+ */
+static void tcp_ostate_sending_in (tcp_t * tcp, tcp_oevent_t event) {
+
+}
+
+/**
+ * retransmit
+ */
+static void tcp_ostate_rexmit_in (tcp_t * tcp, tcp_oevent_t event) {
+
+}
+
+
+/**
+ * Sender FSM
+ * */
+void tcp_out_event (tcp_t * tcp, tcp_oevent_t event) {
+    static void (*state_fun[]) (tcp_t * tcp, tcp_oevent_t event) = {
+            [TCP_OSTATE_IDLE] = tcp_ostate_idle_in,
+            [TCP_OSTATE_SENDING] = tcp_ostate_sending_in,
+            [TCP_OSTATE_REXMIT] = tcp_ostate_rexmit_in,
+    };
+
+    if (tcp->snd.ostate >= TCP_OSTATE_MAX) {
+        log_error(LOG_TCP, "tcp ostate unknown: %d", tcp->snd.ostate);
+        return;
+    }
+    state_fun[tcp->snd.ostate](tcp, event);
 }
