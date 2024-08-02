@@ -543,7 +543,7 @@ net_err_t tcp_send (struct _sock_t* sock, const void* buf, size_t len, int flags
         return NET_ERR_NEED_WAIT;
     } else {
         *result_len = size;
-        tcp_transmit(tcp);
+        tcp_out_event(tcp, TCP_OEVENT_SEND);
         return NET_OK;
     }
 }
