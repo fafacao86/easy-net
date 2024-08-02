@@ -206,7 +206,7 @@ net_err_t tcp_transmit(tcp_t * tcp) {
  */
 net_err_t tcp_send_syn(tcp_t* tcp) {
     tcp->flags.syn_out = 1;
-    tcp_transmit(tcp);
+    tcp_out_event(tcp, TCP_OEVENT_SEND);
     return NET_OK;
 }
 
@@ -285,7 +285,7 @@ net_err_t tcp_send_ack(tcp_t* tcp, tcp_seg_t * seg) {
  */
 net_err_t tcp_send_fin (tcp_t* tcp) {
     tcp->flags.fin_out = 1;
-    tcp_transmit(tcp);
+    tcp_out_event(tcp, TCP_OEVENT_SEND);
     return NET_OK;
 }
 
@@ -352,33 +352,190 @@ const char * tcp_ostate_name (tcp_t * tcp) {
             [TCP_OSTATE_IDLE] = "idle",
             [TCP_OSTATE_SENDING] = "sending",
             [TCP_OSTATE_REXMIT] = "resending",
+            [TCP_OSTATE_MAX] = "unknown",
     };
 
     return state_name[tcp->snd.ostate >= TCP_OSTATE_MAX ? TCP_OSTATE_MAX : tcp->snd.ostate];
 }
 
 
+/**
+ * start retransmit from una
+ * do not send FIN, when there is still data in buffer
+ * */
+net_err_t tcp_retransmit(tcp_t* tcp) {
+    // check if there is any data to retransmit
+    int seq_len = 0;
+    if (tcp->flags.syn_out) {
+        seq_len++;
+    }
+    if (tcp->flags.fin_out) {
+        seq_len++;
+    }
+    packet_t* buf = packet_alloc(sizeof(tcp_hdr_t));
+    if (!buf) {
+        log_error(LOG_TCP, "no buffer");
+        return NET_OK;
+    }
+    tcp_hdr_t* hdr = (tcp_hdr_t*)packet_data(buf);
+    hdr->sport = tcp->base.local_port;
+    hdr->dport = tcp->base.remote_port;
+    hdr->seq = tcp->snd.una;        // start from una instead of nxt
+    hdr->ack = tcp->rcv.nxt;
+    hdr->flags = 0;
+    hdr->f_syn = tcp->flags.syn_out;     // do not clear this flag, because retransmission might also get lost
+    if (hdr->f_syn) {
+        // if SYN is retransmitted, add options for MSS and window scale
+        write_sync_option(tcp, buf);
+    }
+    hdr->f_ack = tcp->flags.irs_valid;
+    hdr->win = (uint16_t)tcp_rcv_window(tcp);
+    hdr->urgptr = 0;
+    tcp_set_hdr_size(hdr, buf->total_size);
+
+    // do not send FIN, when there is still data in buffer
+    log_info(LOG_TCP, "tcp fin flag %d", tcp->flags.fin_out);
+    if (tcp->flags.fin_out) {
+        hdr->f_fin = (tcp_buf_cnt(&tcp->snd.buf) == 0) ? 1 : 0;
+    }
+    log_info(LOG_TCP, "tcp send: syn %d fin %d seq %u, ack %u, dlen %d, seqlen: %d, %s",
+             hdr->f_fin,hdr->f_syn,hdr->seq, hdr->ack, 0, seq_len, tcp_ostate_name(tcp));
+    return send_out(hdr, buf, &tcp->base.remote_ip, &tcp->base.local_ip);
+}
+
+
+
+/**
+ * if in SENDING state, enter retransmit state
+ * if in REXMIT state, retransmit again and exponential backoff for retransmit timer
+ * */
+static void tcp_out_timer_tmo (struct _net_timer_t* timer, void * arg) {
+    tcp_t * tcp = (tcp_t *)arg;
+    log_warning(LOG_TCP, "timer tmo: %s", tcp_ostate_name(tcp));
+
+    // based on Sender FSM
+    switch (tcp->snd.ostate) {
+        case TCP_OSTATE_SENDING: {
+            // enter retransmit state
+            net_err_t err = tcp_retransmit(tcp);
+            if (err < 0) {
+                log_error(LOG_TCP, "rexmit failed.");
+                return;
+            }
+            // start timer
+            tcp->snd.rexmit_cnt = 1;
+            tcp->snd.rto <<= 1;
+            tcp->snd.ostate = TCP_OSTATE_REXMIT;
+            net_timer_add(&tcp->snd.timer, tcp_ostate_name(tcp), tcp_out_timer_tmo, tcp, tcp->snd.rto, 0);
+            break;
+        }
+        case TCP_OSTATE_REXMIT: {
+            if ((++tcp->snd.rexmit_cnt > tcp->snd.rexmit_max)) {
+                // abort the connection if retransmit max reached
+                log_error(LOG_TCP, "rexmit tmo err");
+                tcp_abort(tcp, NET_ERR_TIMEOUT);
+                return;
+            }
+            // retransmit again if max is not reached
+            net_err_t err = tcp_retransmit(tcp);
+            if (err < 0) {
+                log_error(LOG_TCP, "rexmit failed.");
+                return;
+            }
+            // exponential backoff for retransmit timer
+            tcp->snd.rto <<= 1;
+            if (tcp->snd.rto >= TCP_RTO_MAX) {
+                tcp->snd.rto = TCP_RTO_MAX;
+            }
+            net_timer_add(&tcp->snd.timer, tcp_ostate_name(tcp), tcp_out_timer_tmo, tcp, tcp->snd.rto, 0);
+            break;
+        }
+        default:
+            log_error(LOG_TCP, "tcp state error: %d", tcp->state);
+            return;
+    }
+}
+
+
+
+
+void tcp_set_ostate (tcp_t * tcp, tcp_ostate_t state) {
+    if (state >= TCP_OSTATE_MAX) {
+        log_error(LOG_TCP, "unknown state: %d", tcp->snd.ostate);
+        return;
+    }
+
+    // set timer for different states
+    int tmo = 0;
+    switch (state) {
+        case TCP_OSTATE_IDLE:
+            tcp->snd.ostate = state;
+            net_timer_remove(&tcp->snd.timer);
+            return;
+        case TCP_OSTATE_SENDING:
+            tmo = tcp->snd.rto;
+            break;
+        case TCP_OSTATE_REXMIT:
+            tmo = tcp->snd.rto;
+            break;
+        default:
+            break;
+    }
+
+    tcp->snd.ostate = state;
+    net_timer_remove(&tcp->snd.timer);
+    net_timer_add(&tcp->snd.timer, tcp_ostate_name(tcp), tcp_out_timer_tmo, tcp, tmo, 0);
+    log_info(LOG_TCP, "tcp ostate:%s", tcp_ostate_name(tcp));
+}
 
 
 /**
  * idle
  */
 static void tcp_ostate_idle_in (tcp_t * tcp, tcp_oevent_t event) {
-
+    switch (event) {
+        case TCP_OEVENT_SEND:
+            // send data if there is data to send then enter sending state
+            tcp_transmit(tcp);
+            tcp_set_ostate(tcp, TCP_OSTATE_SENDING);
+            break;
+        default:
+            break;
+    }
 }
+
 
 /**
  * send
  */
 static void tcp_ostate_sending_in (tcp_t * tcp, tcp_oevent_t event) {
-
+    switch (event) {
+        // this might be called when ack is received in different conn state
+        case TCP_OEVENT_SEND:
+            // check if all data has been acked, if so enter idle state
+            if (tcp->snd.una == tcp->snd.nxt) {
+                tcp_set_ostate(tcp, TCP_OSTATE_IDLE);
+            }
+            break;
+        default:
+            break;
+    }
 }
 
 /**
  * retransmit
  */
 static void tcp_ostate_rexmit_in (tcp_t * tcp, tcp_oevent_t event) {
-
+    switch (event) {
+        case TCP_OEVENT_SEND: {
+            if ((tcp->snd.una == tcp->snd.nxt) || tcp->flags.fin_out) {
+                tcp_set_ostate(tcp, TCP_OSTATE_IDLE);
+            }
+            break;
+        }
+        default:
+            break;
+    }
 }
 
 

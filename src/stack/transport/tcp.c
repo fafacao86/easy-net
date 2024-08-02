@@ -252,6 +252,13 @@ static tcp_t* tcp_alloc(int wait, int family, int protocol) {
     tcp->conn.keep_intvl = TCP_KEEPALIVE_INTVL;
     tcp->conn.keep_cnt = TCP_KEEPALIVE_PROBES;
     tcp->state = TCP_STATE_CLOSED;
+
+    tcp->snd.ostate = TCP_OSTATE_IDLE;
+    tcp->snd.rto = TCP_INIT_RTO;
+    tcp->snd.ostate = TCP_OSTATE_IDLE;
+    tcp->snd.rexmit_max = TCP_INT_RETRIES;
+
+
     // sender and receiver window variables
     tcp->snd.una = tcp->snd.nxt = tcp->snd.iss = 0;
     tcp->rcv.nxt = tcp->rcv.iss = 0;
@@ -444,6 +451,7 @@ sock_t* tcp_find(ipaddr_t * local_ip, uint16_t local_port, ipaddr_t * remote_ip,
  * the release of resources should be done by the application
  */
 net_err_t tcp_abort (tcp_t * tcp, int err) {
+    tcp_kill_all_timers(tcp);
     tcp_set_state(tcp, TCP_STATE_CLOSED);
     sock_wakeup(&tcp->base, SOCK_WAIT_ALL, err);
     return NET_OK;
@@ -680,4 +688,5 @@ void tcp_destroy (struct _sock_t * sock) {
 
 void tcp_kill_all_timers (tcp_t * tcp) {
     net_timer_remove(&tcp->conn.keep_timer);
+    net_timer_remove(&tcp->snd.timer);
 }

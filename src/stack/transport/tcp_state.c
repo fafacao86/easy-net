@@ -108,7 +108,7 @@ net_err_t tcp_syn_sent_in(tcp_t *tcp, tcp_seg_t *seg) {
         if (tcp->snd.una - tcp->snd.iss > 0) {  // this is to check whether we have ack
             // reply an ack for the SYN of peer
             tcp_send_ack(tcp, seg);
-
+            tcp_out_event(tcp, TCP_OEVENT_SEND);
             // enter established state
             tcp_set_state(tcp, TCP_STATE_ESTABLISHED);
             sock_wakeup(&tcp->base, SOCK_WAIT_CONN, NET_OK);
@@ -124,6 +124,8 @@ net_err_t tcp_syn_sent_in(tcp_t *tcp, tcp_seg_t *seg) {
     // ignore other type of segments
     return NET_OK;
 }
+
+
 
 /**
  * ESTABLISHED
@@ -155,7 +157,7 @@ net_err_t tcp_established_in(tcp_t *tcp, tcp_seg_t *seg) {
     // process data, including FIN, in this function, ACK might be sent
     tcp_data_in(tcp, seg);
 
-    tcp_transmit(tcp);
+    tcp_out_event(tcp, TCP_OEVENT_SEND);
     if (tcp->flags.fin_in) {
         tcp_set_state(tcp, TCP_STATE_CLOSE_WAIT);
     }
@@ -185,7 +187,7 @@ net_err_t tcp_close_wait_in (tcp_t * tcp, tcp_seg_t * seg) {
         return NET_ERR_UNREACH;
     }
     // flush buffer
-    tcp_transmit(tcp);
+    tcp_out_event(tcp, TCP_OEVENT_SEND);
     return NET_OK;
 }
 
@@ -245,7 +247,7 @@ net_err_t tcp_fin_wait_1_in(tcp_t * tcp, tcp_seg_t * seg) {
     }
     // because in this state, it is half-close, we can still receive data from the remote
     tcp_data_in(tcp, seg);
-    tcp_transmit(tcp);
+    tcp_out_event(tcp, TCP_OEVENT_SEND);
     // checkout tcp_ack_process, if receive ack for FIN, it sets fin_out to 0
     log_info(LOG_TCP, "fin_out %d and tcp_hdr_fin %d", tcp->flags.fin_out, tcp->flags.fin_in);
     if (tcp->flags.fin_out == 0) {
@@ -286,6 +288,7 @@ net_err_t tcp_fin_wait_2_in(tcp_t * tcp, tcp_seg_t * seg) {
         return NET_ERR_UNREACH;
     }
     tcp_data_in(tcp, seg);
+    tcp_out_event(tcp, TCP_OEVENT_SEND);
     if (tcp->flags.fin_in) {
         tcp_time_wait(tcp);
     }
@@ -311,7 +314,7 @@ net_err_t tcp_closing_in (tcp_t * tcp, tcp_seg_t * seg) {
         log_warning(LOG_TCP, "%s:  ack process failed", tcp_state_name(tcp->state));
         return NET_ERR_UNREACH;
     }
-    tcp_transmit(tcp);
+    tcp_out_event(tcp, TCP_OEVENT_SEND);
     if (tcp->flags.fin_out ==0) {
         tcp_time_wait(tcp);
     }
@@ -419,7 +422,7 @@ net_err_t tcp_syn_recvd_in(tcp_t *tcp, tcp_seg_t *seg) {
             sock_wakeup((sock_t *)tcp->parent, SOCK_WAIT_CONN, NET_OK);
         }
     }
-    tcp_transmit(tcp);
+    tcp_out_event(tcp, TCP_OEVENT_SEND);
     return NET_OK;
 }
 

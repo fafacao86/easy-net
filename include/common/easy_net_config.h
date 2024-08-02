@@ -93,6 +93,8 @@
 #define TCP_KEEPALIVE_INTVL             75           // Keepalive retry interval
 #define TCP_CLOSE_MAX_TMO               5000         // maximum time to wait for a tcp socket to close, in milliseconds
 #define TCP_TMO_MSL                     5000        // maximum segment lifetime, in milliseconds
-
+#define TCP_INIT_RTO                    1000         // initial retransmission timeout, in milliseconds
+#define TCP_INT_RETRIES                 5            // number of retransmission retries
+#define TCP_RTO_MAX                     8000         // maximum retransmission timeout, in milliseconds
 
 #endif
