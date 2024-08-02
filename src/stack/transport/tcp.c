@@ -682,6 +682,7 @@ void tcp_destroy (struct _sock_t * sock) {
     tcp_t * tcp = (tcp_t *)sock;
     // in TIME_WAIT state, the timer will free the tcb
     if (tcp->state != TCP_STATE_TIME_WAIT) {
+        tcp_kill_all_timers(tcp);
         tcp_free((tcp_t *)sock);
     }
 }
