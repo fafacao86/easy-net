@@ -60,7 +60,6 @@
 - 通过TCP sender状态机来实现超时重传，不用状态机的话一旦结合上超时重传，transmit函数会很难写
 
 
-
 * 在使用memory_pool的时候，block的大小一定要比list_node_t大
 * 申请pages的时候如果申请到一半失败，要把申请到的不完整的pages给free掉，所有的alloc过程，如果执行到一半失败，一定要把前半部分申请成功的资源释放
 
